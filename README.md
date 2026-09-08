@@ -6,7 +6,7 @@
 
 ![Synth](Photos/synth.jpg)
 
-This is an 12 voice bi-timbral polyphonic dual VCO based synthesizer that uses an RP2040 to autotune and control a pair of AS3340 VCO chips.
+This is an 12 voice bi-timbral polyphonic dual VCO based synthesizer that uses an RP2350 to autotune and control a pair of AS3340 VCO chips.
 
 I have also added portamento, octave switching, oscillator sync etc.
 
