@@ -2,7 +2,7 @@
 
 ## Unfortunately the project did not work out too well as the DCO's were noisy and the PWM and triangle sounded atrocious.
 
-## So a new synth is born with the same controller, new displays and the same filters, but now each RP2040 autotunes a pair of AS3340 VCO's
+## So a new synth is born with the same controller, new displays and the same filters, but now each RP2350 autotunes a pair of AS3340 VCO's
 
 ![Synth](Photos/synth.jpg)
 
