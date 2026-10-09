@@ -4,7 +4,7 @@
 #include <SD.h>
 #include <SerialFlash.h>
 #include <MIDI.h>
-#include <USBHost_t36.h>
+//#include <USBHost_t36.h>
 #include "MidiCC.h"
 #include "Constants.h"
 #include "Parameters.h"
@@ -103,17 +103,18 @@ Performance currentPerformance;
 
 
 //USB HOST MIDI Class Compliant
-USBHost myusb;
-USBHub hub1(myusb);
-USBHub hub2(myusb);
-MIDIDevice midi1(myusb);
+// USBHost myusb;
+// USBHub hub1(myusb);
+// USBHub hub2(myusb);
+// MIDIDevice_BigBuffer midi1(myusb);
 
 
 //MIDI 5 Pin DIN
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);   // main MIDI in and out
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial6, MIDI6);  // MIDI out to voices
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, MIDI2);  // Aux midi in to fix usbHost
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial6, MIDI6);  // MIDI out to lower voices
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial7, MIDI7);  // MIDI out to display (not connected)
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial8, MIDI8);  // MIDI out to display (not connected)
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial8, MIDI8);  // MIDI out to upper voices
 
 #define OCTO_TOTAL 4
 #define BTN_DEBOUNCE 50
@@ -248,14 +249,14 @@ void setup() {
   Serial.println("MIDI Ch:" + String(midiChannel) + " (0 is Omni On)");
 
   //USB HOST MIDI Class Compliant
-  delay(400);  //Wait to turn on USB Host
-  myusb.begin();
-  midi1.setHandleControlChange(editControlChange);
-  midi1.setHandleNoteOff(myNoteOff);
-  midi1.setHandleNoteOn(myNoteOn);
-  midi1.setHandlePitchChange(DinHandlePitchBend);
-  midi1.setHandleAfterTouch(myAfterTouch);
-  Serial.println("USB HOST MIDI Class Compliant Listening");
+  // delay(400);  //Wait to turn on USB Host
+  // myusb.begin();
+  // midi1.setHandleControlChange(editControlChange);
+  // midi1.setHandleNoteOff(myNoteOff);
+  // midi1.setHandleNoteOn(myNoteOn);
+  // midi1.setHandlePitchChange(DinHandlePitchBend);
+  // midi1.setHandleAfterTouch(myAfterTouch);
+  // Serial.println("USB HOST MIDI Class Compliant Listening");
 
   //USB Client MIDI
   usbMIDI.setHandleControlChange(editControlChange);
@@ -276,6 +277,18 @@ void setup() {
   MIDI.setHandleNoteOff(myNoteOff);
   MIDI.turnThruOn(midi::Thru::Mode::Off);
   Serial.println("MIDI In DIN Listening");
+
+  //MIDI2 5 Pin DIN
+  MIDI2.begin();
+  static uint8_t serial2RxBuf[512];
+  Serial2.addMemoryForRead(serial2RxBuf, sizeof(serial2RxBuf));
+  MIDI2.setHandleControlChange(editControlChange);
+  MIDI2.setHandleAfterTouchChannel(myAfterTouch);
+  MIDI2.setHandlePitchBend(DinHandlePitchBend);
+  MIDI2.setHandleNoteOn(myNoteOn);
+  MIDI2.setHandleNoteOff(myNoteOff);
+  MIDI2.turnThruOn(midi::Thru::Mode::Off);
+  Serial.println("MIDI2 In DIN Listening");
 
   MIDI7.begin();
   MIDI7.turnThruOn(midi::Thru::Mode::Off);
@@ -306,15 +319,15 @@ void setup() {
   delay(500);
 
 
-  for (int i = 0; i < 12; i++) {
+  for (int i = 1; i < 7; i++) {
     int noteon = 60;
-    MIDI6.sendNoteOn(noteon, 64, 1);
+    MIDI6.sendNoteOn(noteon, 64, i);
     delayMicroseconds(DelayForSH3);
-    MIDI6.sendNoteOn(noteon, 64, 2);
+    MIDI8.sendNoteOn(noteon, 64, i);
     delay(1);
-    MIDI6.sendNoteOff(noteon, 64, 1);
+    MIDI6.sendNoteOff(noteon, 64, i);
     delayMicroseconds(DelayForSH3);
-    MIDI6.sendNoteOff(noteon, 64, 2);
+    MIDI8.sendNoteOff(noteon, 64, i);
     noteon++;
   }
   delay(200);
@@ -1215,27 +1228,11 @@ void mainButtonChanged(Button *btn, bool released) {
     case NOISE_BUTTON:
       if (!released) {
         if (upperSW) {
-          if (!toggleNoiseLevelU) {
-            storedNoiseLevelU = upperData[P_noiseLevel];
-            upperData[P_noiseLevel] = 63;
-          } else {
-            upperData[P_noiseLevel] = storedNoiseLevelU;
-          }
-          toggleNoiseLevelU = !toggleNoiseLevelU;
-          noiseLevelstr = LINEARCENTREZERO[upperData[P_noiseLevel]];
+          upperData[P_noiseSource] = !upperData[P_noiseSource];
         } else {
-          if (!toggleNoiseLevelL) {
-            storedNoiseLevelL = lowerData[P_noiseLevel];
-            lowerData[P_noiseLevel] = 63;
-            if (wholemode) upperData[P_noiseLevel] = 63;
-          } else {
-            lowerData[P_noiseLevel] = storedNoiseLevelL;
-            if (wholemode) upperData[P_noiseLevel] = storedNoiseLevelL;
-          }
-          toggleNoiseLevelL = !toggleNoiseLevelL;
-          noiseLevelstr = LINEARCENTREZERO[lowerData[P_noiseLevel]];
+          lowerData[P_noiseSource] = !lowerData[P_noiseSource];
         }
-        updatenoiseLevel(1);
+        updatenoiseSource(1);
       }
       break;
 
@@ -1684,9 +1681,9 @@ void commandTopNoteUpper() {
     if (notesUpper[i]) topNote = i;
 
   if (topNote >= 0)
-    assignVoice(topNote, noteVel, 4);
+    assignVoice(topNote, noteVel, 6);
   else
-    releaseVoice(noteMsg, 4);
+    releaseVoice(noteMsg, 6);
 }
 
 void commandBottomNoteUpper() {
@@ -1695,20 +1692,20 @@ void commandBottomNoteUpper() {
     if (notesUpper[i]) bottomNote = i;
 
   if (bottomNote >= 0)
-    assignVoice(bottomNote, noteVel, 4);
+    assignVoice(bottomNote, noteVel, 6);
   else
-    releaseVoice(noteMsg, 4);
+    releaseVoice(noteMsg, 6);
 }
 
 void commandLastNoteUpper() {
   for (int i = 0; i < 40; i++) {
     int8_t idx = noteOrderUpper[mod(orderIndxUpper - i, 40)];
     if (notesUpper[idx]) {
-      assignVoice(idx, noteVel, 4);
+      assignVoice(idx, noteVel, 6);
       return;
     }
   }
-  releaseVoice(noteMsg, 4);
+  releaseVoice(noteMsg, 6);
 }
 
 // Unison lower and upper
@@ -1719,9 +1716,9 @@ void commandTopNoteUniLower() {
     if (notesLower[i]) topNote = i;
 
   if (topNote >= 0)
-    for (int v = 0; v < 4; v++) assignVoice(topNote, noteVel, v);
+    for (int v = 0; v < 6; v++) assignVoice(topNote, noteVel, v);
   else
-    for (int v = 0; v < 4; v++) releaseVoice(noteMsg, v);
+    for (int v = 0; v < 6; v++) releaseVoice(noteMsg, v);
 }
 
 void commandBottomNoteUniLower() {
@@ -1730,20 +1727,20 @@ void commandBottomNoteUniLower() {
     if (notesLower[i]) bottomNote = i;
 
   if (bottomNote >= 0)
-    for (int v = 0; v < 4; v++) assignVoice(bottomNote, noteVel, v);
+    for (int v = 0; v < 6; v++) assignVoice(bottomNote, noteVel, v);
   else
-    for (int v = 0; v < 4; v++) releaseVoice(noteMsg, v);
+    for (int v = 0; v < 6; v++) releaseVoice(noteMsg, v);
 }
 
 void commandLastNoteUniLower() {
   for (int i = 0; i < 40; i++) {
     int8_t idx = noteOrderLower[mod(orderIndxLower - i, 40)];
     if (notesLower[idx]) {
-      for (int v = 0; v < 4; v++) assignVoice(idx, noteVel, v);
+      for (int v = 0; v < 6; v++) assignVoice(idx, noteVel, v);
       return;
     }
   }
-  for (int v = 0; v < 4; v++) releaseVoice(noteMsg, v);
+  for (int v = 0; v < 6; v++) releaseVoice(noteMsg, v);
 }
 
 void commandTopNoteUniUpper() {
@@ -1752,9 +1749,9 @@ void commandTopNoteUniUpper() {
     if (notesUpper[i]) topNote = i;
 
   if (topNote >= 0)
-    for (int v = 4; v < 8; v++) assignVoice(topNote, noteVel, v);
+    for (int v = 6; v < 12; v++) assignVoice(topNote, noteVel, v);
   else
-    for (int v = 4; v < 8; v++) releaseVoice(noteMsg, v);
+    for (int v = 6; v < 12; v++) releaseVoice(noteMsg, v);
 }
 
 void commandBottomNoteUniUpper() {
@@ -1763,20 +1760,20 @@ void commandBottomNoteUniUpper() {
     if (notesUpper[i]) bottomNote = i;
 
   if (bottomNote >= 0)
-    for (int v = 4; v < 8; v++) assignVoice(bottomNote, noteVel, v);
+    for (int v = 6; v < 12; v++) assignVoice(bottomNote, noteVel, v);
   else
-    for (int v = 4; v < 8; v++) releaseVoice(noteMsg, v);
+    for (int v = 6; v < 12; v++) releaseVoice(noteMsg, v);
 }
 
 void commandLastNoteUniUpper() {
   for (int i = 0; i < 40; i++) {
     int8_t idx = noteOrderUpper[mod(orderIndxUpper - i, 40)];
     if (notesUpper[idx]) {
-      for (int v = 4; v < 8; v++) assignVoice(idx, noteVel, v);
+      for (int v = 6; v < 12; v++) assignVoice(idx, noteVel, v);
       return;
     }
   }
-  for (int v = 4; v < 8; v++) releaseVoice(noteMsg, v);
+  for (int v = 6; v < 12; v++) releaseVoice(noteMsg, v);
 }
 
 void memorizeChordFromVoices() {
@@ -1818,29 +1815,29 @@ void memorizeChordFromVoices() {
 }
 
 void onHoldButtonPressed() {
-    chordHoldActive = true;
-    chordHoldWaitingForNotes = true;
-    chordHoldCount = 0;
+  chordHoldActive = true;
+  chordHoldWaitingForNotes = true;
+  chordHoldCount = 0;
 
-    // --- New: if notes are already held, capture immediately ---
-    bool anyActive = false;
-    for (int i = 0; i < NO_OF_VOICES; ++i) {
-        if (voices[i].note >= 0 && voices[i].noteOn) {
-            anyActive = true;
-            break;
-        }
+  // --- New: if notes are already held, capture immediately ---
+  bool anyActive = false;
+  for (int i = 0; i < NO_OF_VOICES; ++i) {
+    if (voices[i].note >= 0 && voices[i].noteOn) {
+      anyActive = true;
+      break;
     }
-    if (anyActive) {
-        memorizeChordFromVoices();
-        chordHoldWaitingForNotes = false;
-        chordHoldCaptureWindowActive = false;
-        //Serial.println("Chord Hold: Captured chord immediately.");
-    } else {
-        // No notes held: start waiting for a chord (timer capture window)
-        chordHoldCaptureWindowActive = false;
-        chordHoldStartTime = 0;
-        //Serial.println("Chord Hold: ARMED, waiting for chord input.");
-    }
+  }
+  if (anyActive) {
+    memorizeChordFromVoices();
+    chordHoldWaitingForNotes = false;
+    chordHoldCaptureWindowActive = false;
+    //Serial.println("Chord Hold: Captured chord immediately.");
+  } else {
+    // No notes held: start waiting for a chord (timer capture window)
+    chordHoldCaptureWindowActive = false;
+    chordHoldStartTime = 0;
+    //Serial.println("Chord Hold: ARMED, waiting for chord input.");
+  }
 }
 
 void onHoldButtonReleased() {
@@ -1869,6 +1866,7 @@ void myNoteOn(byte channel, byte note, byte velocity) {
     for (int i = 0; i < chordHoldCount; i++) {
       uint8_t chordNote = note + chordHoldIntervals[i];
       int voiceNum = (lowerData[P_keyboardMode] == 0) ? getVoiceNo(-1) - 1 : getVoiceNoPoly2(-1) - 1;
+      if (voiceNum >= 0 && voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
       assignVoice(chordNote, velocity, voiceNum);
       voiceAssignment[chordNote] = voiceNum;
       //Serial.print("NoteOn: ");
@@ -1887,12 +1885,14 @@ void myNoteOn(byte channel, byte note, byte velocity) {
       switch (lowerData[P_keyboardMode]) {
         case 0:
           voiceNum = getVoiceNo(-1) - 1;
+          if (voiceNum >= 0 && voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
           assignVoice(note, velocity, voiceNum);
           break;  // Poly1
         case 1:
           voiceNum = getVoiceNoPoly2(-1) - 1;
+          if (voiceNum >= 0 && voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
           assignVoice(note, velocity, voiceNum);
-          break;                                             // Poly2
+          break;                                             // Poly2                                           // Poly2
         case 2: commandMonoNoteOn(note, velocity); break;    // Mono
         case 3: commandUnisonNoteOn(note, velocity); break;  // Unison
       }
@@ -1915,6 +1915,7 @@ void myNoteOn(byte channel, byte note, byte velocity) {
           voiceToNoteLower[lowerVoice] = note;
         } else if (lowerData[P_keyboardMode] == 0) {  // Poly1 Lower
           int lowerVoice = getLowerSplitVoice(note);
+          if (voices[lowerVoice].note >= 0) releaseVoice(voices[lowerVoice].note, lowerVoice);  // ADD
           assignVoice(note, velocity, lowerVoice);
           voiceAssignmentLower[note] = lowerVoice;
           voiceToNoteLower[lowerVoice] = note;
@@ -1937,6 +1938,7 @@ void myNoteOn(byte channel, byte note, byte velocity) {
           voiceToNoteUpper[upperVoice - 6] = note;
         } else if (upperData[P_keyboardMode] == 0) {  // Poly1 Upper
           int upperVoice = getUpperSplitVoice(note);
+          if (voices[upperVoice].note >= 0) releaseVoice(voices[upperVoice].note, upperVoice);  // ADD
           assignVoice(note, velocity, upperVoice);
           voiceAssignmentUpper[note] = upperVoice;
           voiceToNoteUpper[upperVoice - 6] = note;
@@ -1954,12 +1956,14 @@ void myNoteOn(byte channel, byte note, byte velocity) {
         switch (lowerData[P_keyboardMode]) {
           case 0:
             voiceNum = getLowerSplitVoice(note);
+            if (voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
             assignVoice(note, velocity, voiceNum);
             voiceAssignmentLower[note] = voiceNum;
             voiceToNoteLower[voiceNum] = note;
             break;
           case 1:
             voiceNum = getLowerSplitVoicePoly2(note);
+            if (voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
             assignVoice(note, velocity, voiceNum);
             voiceAssignmentLower[note] = voiceNum;
             voiceToNoteLower[voiceNum] = note;
@@ -1975,12 +1979,14 @@ void myNoteOn(byte channel, byte note, byte velocity) {
         switch (upperData[P_keyboardMode]) {
           case 0:
             voiceNum = getUpperSplitVoice(note);
+            if (voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
             assignVoice(note, velocity, voiceNum);
             voiceAssignmentUpper[note] = voiceNum;
             voiceToNoteUpper[voiceNum - 6] = note;
             break;
           case 1:
             voiceNum = getUpperSplitVoicePoly2(note);
+            if (voices[voiceNum].note >= 0) releaseVoice(voices[voiceNum].note, voiceNum);  // ADD
             assignVoice(note, velocity, voiceNum);
             voiceAssignmentUpper[note] = voiceNum;
             voiceToNoteUpper[voiceNum - 6] = note;
@@ -2090,7 +2096,7 @@ void myNoteOff(byte channel, byte note, byte velocity) {
             commandUnisonNoteOffLower(note);
           } else {
             int lowerVoice = voiceAssignmentLower[note];
-            if (lowerVoice >= 0 && lowerVoice <= 3 && voiceToNoteLower[lowerVoice] == note) {
+            if (lowerVoice >= 0 && lowerVoice <= 5 && voiceToNoteLower[lowerVoice] == note) {
               releaseVoice(note, lowerVoice);
               voiceAssignmentLower[note] = -1;
               voiceToNoteLower[lowerVoice] = -1;
@@ -2249,8 +2255,10 @@ void commandMonoNoteOffLower(byte note) {
 
 void commandUnisonNoteOnUpper(byte note, byte velocity, byte priority) {
   notesUpper[note] = true;
-  noteMsg = note;                                       // explicitly set here
-  noteVel = velocity;                                   // explicitly set here
+  noteMsg = note;      // explicitly set here
+  noteVel = velocity;  // explicitly set here
+  orderIndxUpper = (orderIndxUpper + 1) % 40;
+  noteOrderUpper[orderIndxUpper] = note;
   if (priority == 0) commandTopNoteUniUpper();          // Highest priority
   else if (priority == 1) commandBottomNoteUniUpper();  // Lowest priority
   else commandLastNoteUniUpper();                       // Last note priority
@@ -2264,8 +2272,10 @@ void commandUnisonNoteOffUpper(byte note) {
 
 void commandUnisonNoteOnLower(byte note, byte velocity, byte priority) {
   notesLower[note] = true;
-  noteMsg = note;                                       // explicitly set here
-  noteVel = velocity;                                   // explicitly set here
+  noteMsg = note;      // explicitly set here
+  noteVel = velocity;  // explicitly set here
+  orderIndxLower = (orderIndxLower + 1) % 40;
+  noteOrderLower[orderIndxLower] = note;
   if (priority == 0) commandTopNoteUniLower();          // Highest priority
   else if (priority == 1) commandBottomNoteUniLower();  // Lowest priority
   else commandLastNoteUniLower();                       // Last note priority
@@ -2288,17 +2298,17 @@ int getUpperSplitVoice(byte note) {
   // fallback oldest (poly2 style if no voice free)
   int oldest = 6;
   unsigned long oldestTime = voices[6].timeOn;
-  for (int i = 5; i < 12; i++)
+  for (int i = 7; i < 12; i++)
     if (voices[i].timeOn < oldestTime) {
       oldest = i;
       oldestTime = voices[i].timeOn;
     }
-  upperSplitVoicePointer = ((oldest - 6) + 1) % 4;
+  upperSplitVoicePointer = ((oldest - 6) + 1) % 6;
   return oldest;
 }
 
 int getLowerSplitVoice(byte note) {
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 6; i++) {
     int idx = (lowerSplitVoicePointer + i) % 6;
     if (!voiceOn[idx]) {
       lowerSplitVoicePointer = (idx + 1) % 6;
@@ -2356,14 +2366,22 @@ void assignVoice(byte note, byte velocity, int voiceIdx) {
     voices[voiceIdx].velocity = velocity;
     voices[voiceIdx].timeOn = millis();
     voices[voiceIdx].noteOn = true;  // <-- This enables chord hold!
-    MIDI6.sendNoteOn(note, velocity, voiceIdx + 1);
+    if (voiceIdx < 6) {
+      MIDI6.sendNoteOn(note, velocity, voiceIdx + 1);  // lower board, voices 1-6
+    } else {
+      MIDI8.sendNoteOn(note, velocity, voiceIdx - 5);  // upper board, voices 1-6
+    }
     voiceOn[voiceIdx] = true;
   }
 }
 
 void releaseVoice(byte note, int voiceIdx) {
   if (voiceIdx >= 0 && voiceIdx < 12 && voices[voiceIdx].note == note) {
-    MIDI6.sendNoteOff(note, 0, voiceIdx + 1);
+    if (voiceIdx < 6) {
+      MIDI6.sendNoteOff(note, 0, voiceIdx + 1);  // lower board, voices 1-6
+    } else {
+      MIDI8.sendNoteOff(note, 0, voiceIdx - 5);  // upper board, voices 1-6
+    }
     voices[voiceIdx].note = -1;
     voices[voiceIdx].noteOn = false;
     voiceOn[voiceIdx] = false;
@@ -2460,16 +2478,16 @@ int getVoiceNo(int note) {
 
 void DinHandlePitchBend(byte channel, int pitch) {
   if (wholemode) {
-    MIDI6.sendPitchBend(pitch, 1);
-    MIDI6.sendPitchBend(pitch, 2);
+    MIDI6.sendPitchBend(pitch, 9);
+    MIDI8.sendPitchBend(pitch, 9);
   }
   if (dualmode) {
-    MIDI6.sendPitchBend(pitch, 1);
-    MIDI6.sendPitchBend(pitch, 2);
+    MIDI6.sendPitchBend(pitch, 9);
+    MIDI8.sendPitchBend(pitch, 9);
   }
   if (splitmode) {
-    MIDI6.sendPitchBend(pitch, 1);
-    MIDI6.sendPitchBend(pitch, 2);
+    MIDI6.sendPitchBend(pitch, 9);
+    MIDI8.sendPitchBend(pitch, 9);
   }
 }
 
@@ -2488,8 +2506,8 @@ void getDelayTime() {
 }
 
 void allNotesOff() {
-  midiCCOut61(WSallNotesOff, 127);
-  midiCCOut62(WSallNotesOff, 127);
+  midiCCOutLowerVCO(CC_ALL_NOTES_OFF, 127);
+  midiCCOutUpperVCO(CC_ALL_NOTES_OFF, 127);
 }
 
 void updatepwLFO(boolean announce) {
@@ -2498,9 +2516,14 @@ void updatepwLFO(boolean announce) {
     showCurrentParameterPage("PWM Rate", int(pwLFOstr));
   }
   if (upperSW) {
+    midiCCOutUpperVCO(CC_LFO2_RATE, upperData[P_pwLFO]);
     midiCCOut(CCpwLFO, upperData[P_pwLFO]);
     midiCCOut71(CCpwLFO, upperData[P_pwLFO]);
   } else {
+    midiCCOutLowerVCO(CC_LFO2_RATE, lowerData[P_pwLFO]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO2_RATE, lowerData[P_pwLFO]);
+    }
     midiCCOut(CCpwLFO, lowerData[P_pwLFO]);
     midiCCOut71(CCpwLFO, lowerData[P_pwLFO]);
   }
@@ -2511,16 +2534,16 @@ void updatefmDepth(boolean announce) {
     showCurrentParameterPage("FM Depth", int(fmDepthstr));
   }
   if (upperSW) {
-    midiCCOut62(WSFMDepth, upperData[P_fmDepth]);
+    midiCCOutUpperVCO(CC_LFO1_DEPTH, upperData[P_fmDepth]);
     midiCCOut(CCfmDepth, upperData[P_fmDepth]);
     midiCCOut71(CCfmDepth, upperData[P_fmDepth]);
   } else {
-    midiCCOut61(WSFMDepth, lowerData[P_fmDepth]);
+    midiCCOutLowerVCO(CC_LFO1_DEPTH, lowerData[P_fmDepth]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO1_DEPTH, lowerData[P_fmDepth]);
+    }
     midiCCOut(CCfmDepth, lowerData[P_fmDepth]);
     midiCCOut71(CCfmDepth, lowerData[P_fmDepth]);
-    if (wholemode) {
-      midiCCOut62(WSFMDepth, upperData[P_fmDepth]);
-    }
   }
 }
 
@@ -2529,16 +2552,16 @@ void updateATDepth(boolean announce) {
     showCurrentParameterPage("AT Depth", int(ATDepthstr));
   }
   if (upperSW) {
-    midiCCOut62(WSATmodDepth, upperData[P_ATDepth]);
+    midiCCOutUpperVCO(CC_FM_AT_WHEEL, upperData[P_ATDepth]);
     midiCCOut(CCATDepth, upperData[P_ATDepth]);
     midiCCOut71(CCATDepth, upperData[P_ATDepth]);
   } else {
-    midiCCOut61(WSATmodDepth, lowerData[P_ATDepth]);
+    midiCCOutLowerVCO(CC_FM_AT_WHEEL, lowerData[P_ATDepth]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_FM_AT_WHEEL, lowerData[P_ATDepth]);
+    }
     midiCCOut(CCATDepth, lowerData[P_ATDepth]);
     midiCCOut71(CCATDepth, lowerData[P_ATDepth]);
-    if (wholemode) {
-      midiCCOut62(WSATmodDepth, upperData[P_ATDepth]);
-    }
   }
 }
 
@@ -2547,16 +2570,16 @@ void updateosc2PW(boolean announce) {
     showCurrentParameterPage("OSC2 PW", String(osc2PWstr) + " %");
   }
   if (upperSW) {
-    midiCCOut62(WSosc2PW, upperData[P_osc2PW]);
+    midiCCOutUpperVCO(CC_PW2, upperData[P_osc2PW]);
     midiCCOut(CCosc2PW, upperData[P_osc2PW]);
     midiCCOut71(CCosc2PW, upperData[P_osc2PW]);
   } else {
-    midiCCOut61(WSosc2PW, lowerData[P_osc2PW]);
+    midiCCOutLowerVCO(CC_PW2, lowerData[P_osc2PW]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_PW2, lowerData[P_osc2PW]);
+    }
     midiCCOut(CCosc2PW, lowerData[P_osc2PW]);
     midiCCOut71(CCosc2PW, lowerData[P_osc2PW]);
-    if (wholemode) {
-      midiCCOut62(WSosc2PW, upperData[P_osc2PW]);
-    }
   }
 }
 
@@ -2565,16 +2588,16 @@ void updateosc2PWM(boolean announce) {
     showCurrentParameterPage("OSC2 PWM", int(osc2PWMstr));
   }
   if (upperSW) {
-    midiCCOut62(WSosc2PWM, upperData[P_osc2PWM]);
+    midiCCOutUpperVCO(CC_PWM2_DEPTH, upperData[P_osc2PWM]);
     midiCCOut(CCosc2PWM, upperData[P_osc2PWM]);
     midiCCOut71(CCosc2PWM, upperData[P_osc2PWM]);
   } else {
-    midiCCOut61(WSosc2PWM, lowerData[P_osc2PWM]);
+    midiCCOutLowerVCO(CC_PWM2_DEPTH, lowerData[P_osc2PWM]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_PWM2_DEPTH, lowerData[P_osc2PWM]);
+    }
     midiCCOut(CCosc2PWM, lowerData[P_osc2PWM]);
     midiCCOut71(CCosc2PWM, lowerData[P_osc2PWM]);
-    if (wholemode) {
-      midiCCOut62(WSosc2PWM, upperData[P_osc2PWM]);
-    }
   }
 }
 
@@ -2584,16 +2607,16 @@ void updateosc1PW(boolean announce) {
     showCurrentParameterPage("OSC1 PW", String(osc1PWstr) + " %");
   }
   if (upperSW) {
-    midiCCOut62(WSosc1PW, upperData[P_osc1PW]);
+    midiCCOutUpperVCO(CC_PW1, upperData[P_osc1PW]);
     midiCCOut(CCosc1PW, upperData[P_osc1PW]);
     midiCCOut71(CCosc1PW, upperData[P_osc1PW]);
   } else {
-    midiCCOut61(WSosc1PW, lowerData[P_osc1PW]);
+    midiCCOutLowerVCO(CC_PW1, lowerData[P_osc1PW]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_PW1, lowerData[P_osc1PW]);
+    }
     midiCCOut(CCosc1PW, lowerData[P_osc1PW]);
     midiCCOut71(CCosc1PW, lowerData[P_osc1PW]);
-    if (wholemode) {
-      midiCCOut62(WSosc1PW, upperData[P_osc1PW]);
-    }
   }
 }
 
@@ -2602,16 +2625,16 @@ void updateosc1PWM(boolean announce) {
     showCurrentParameterPage("OSC1 PWM", int(osc1PWMstr));
   }
   if (upperSW) {
-    midiCCOut62(WSosc1PWM, upperData[P_osc1PWM]);
+    midiCCOutUpperVCO(CC_PWM1_DEPTH, upperData[P_osc1PWM]);
     midiCCOut(CCosc1PWM, upperData[P_osc1PWM]);
     midiCCOut71(CCosc1PWM, upperData[P_osc1PWM]);
   } else {
-    midiCCOut61(WSosc1PWM, lowerData[P_osc1PWM]);
+    midiCCOutLowerVCO(CC_PWM1_DEPTH, lowerData[P_osc1PWM]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_PWM1_DEPTH, lowerData[P_osc1PWM]);
+    }
     midiCCOut(CCosc1PWM, lowerData[P_osc1PWM]);
     midiCCOut71(CCosc1PWM, lowerData[P_osc1PWM]);
-    if (wholemode) {
-      midiCCOut62(WSosc1PWM, upperData[P_osc1PWM]);
-    }
   }
 }
 
@@ -2623,21 +2646,21 @@ void updateosc1Range(boolean announce) {
         showCurrentParameterPage("Osc1 Range", String("8"));
       }
       midiCCOut(CCosc1Oct, 2);
-      midiCCOut62(WSosc1oct, 127);
+      midiCCOutUpperVCO(CC_OCTAVE_A, 127);
       midiCCOut72(CCosc1Oct, 2);
     } else if (upperData[P_osc1Range] == 1) {
       if (announce) {
         showCurrentParameterPage("Osc1 Range", String("16"));
       }
       midiCCOut(CCosc1Oct, 1);
-      midiCCOut62(WSosc1oct, 64);
+      midiCCOutUpperVCO(CC_OCTAVE_A, 64);
       midiCCOut72(CCosc1Oct, 1);
     } else {
       if (announce) {
         showCurrentParameterPage("Osc1 Range", String("32"));
       }
       midiCCOut(CCosc1Oct, 0);
-      midiCCOut62(WSosc1oct, 0);
+      midiCCOutUpperVCO(CC_OCTAVE_A, 0);
       midiCCOut72(CCosc1Oct, 0);
     }
   } else {
@@ -2647,30 +2670,30 @@ void updateosc1Range(boolean announce) {
         showCurrentParameterPage("Osc1 Range", String("8"));
       }
       midiCCOut(CCosc1Oct, 2);
-      midiCCOut61(WSosc1oct, 127);
+      midiCCOutLowerVCO(CC_OCTAVE_A, 127);
       midiCCOut72(CCosc1Oct, 2);
       if (wholemode) {
-        midiCCOut62(WSosc1oct, 127);
+        midiCCOutUpperVCO(CC_OCTAVE_A, 127);
       }
     } else if (lowerData[P_osc1Range] == 1) {
       if (announce) {
         showCurrentParameterPage("Osc1 Range", String("16"));
       }
       midiCCOut(CCosc1Oct, 1);
-      midiCCOut61(WSosc1oct, 64);
+      midiCCOutLowerVCO(CC_OCTAVE_A, 64);
       midiCCOut72(CCosc1Oct, 1);
       if (wholemode) {
-        midiCCOut62(WSosc1oct, 64);
+        midiCCOutUpperVCO(CC_OCTAVE_A, 64);
       }
     } else {
       if (announce) {
         showCurrentParameterPage("Osc1 Range", String("32"));
       }
       midiCCOut(CCosc1Oct, 0);
-      midiCCOut61(WSosc1oct, 0);
+      midiCCOutLowerVCO(CC_OCTAVE_A, 0);
       midiCCOut72(CCosc1Oct, 0);
       if (wholemode) {
-        midiCCOut62(WSosc1oct, 0);
+        midiCCOutUpperVCO(CC_OCTAVE_A, 0);
       }
     }
   }
@@ -2683,14 +2706,14 @@ void updateosc2Range(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Osc2 Range", String("8"));
       }
-      midiCCOut62(WSosc2oct, 127);
+      midiCCOutUpperVCO(CC_OCTAVE_B, 127);
       midiCCOut72(CCosc2Oct, 2);
       midiCCOut(CCosc2Oct, 2);
     } else if (upperData[P_osc2Range] == 1) {
       if (announce) {
         showCurrentParameterPage("Osc2 Range", String("16"));
       }
-      midiCCOut62(WSosc2oct, 64);
+      midiCCOutUpperVCO(CC_OCTAVE_B, 64);
       midiCCOut72(CCosc2Oct, 1);
       midiCCOut(CCosc2Oct, 1);
     } else {
@@ -2698,7 +2721,7 @@ void updateosc2Range(boolean announce) {
         showCurrentParameterPage("Osc2 Range", String("32"));
       }
       midiCCOut(CCosc2Oct, 0);
-      midiCCOut62(WSosc2oct, 0);
+      midiCCOutUpperVCO(CC_OCTAVE_B, 0);
       midiCCOut72(CCosc2Oct, 0);
     }
   } else {
@@ -2708,30 +2731,30 @@ void updateosc2Range(boolean announce) {
         showCurrentParameterPage("Osc2 Range", String("8"));
       }
       midiCCOut(CCosc2Oct, 2);
-      midiCCOut61(WSosc2oct, 127);
+      midiCCOutLowerVCO(CC_OCTAVE_B, 127);
       midiCCOut72(CCosc2Oct, 2);
       if (wholemode) {
-        midiCCOut62(WSosc2oct, 127);
+        midiCCOutUpperVCO(CC_OCTAVE_B, 127);
       }
     } else if (lowerData[P_osc2Range] == 1) {
       if (announce) {
         showCurrentParameterPage("Osc2 Range", String("16"));
       }
       midiCCOut(CCosc2Oct, 1);
-      midiCCOut61(WSosc2oct, 64);
+      midiCCOutLowerVCO(CC_OCTAVE_B, 64);
       midiCCOut72(CCosc2Oct, 1);
       if (wholemode) {
-        midiCCOut62(WSosc2oct, 64);
+        midiCCOutUpperVCO(CC_OCTAVE_B, 64);
       }
     } else {
       if (announce) {
         showCurrentParameterPage("Osc2 Range", String("32"));
       }
       midiCCOut(CCosc2Oct, 0);
-      midiCCOut61(WSosc2oct, 0);
+      midiCCOutLowerVCO(CC_OCTAVE_B, 0);
       midiCCOut72(CCosc2Oct, 0);
       if (wholemode) {
-        midiCCOut62(WSosc2oct, 0);
+        midiCCOutUpperVCO(CC_OCTAVE_B, 0);
       }
     }
   }
@@ -2742,16 +2765,16 @@ void updateglideTime(boolean announce) {
     showCurrentParameterPage("Glide Time", String(glideTimestr * 10) + " Seconds");
   }
   if (upperSW) {
-    midiCCOut62(WSglideTime, upperData[P_glideTime]);
+    midiCCOutUpperVCO(CC_PORTAMENTO_TIME, upperData[P_glideTime]);
     midiCCOut(CCglideTime, upperData[P_glideTime]);
     midiCCOut71(CCglideTime, upperData[P_glideTime]);
   } else {
-    midiCCOut61(WSglideTime, lowerData[P_glideTime]);
+    midiCCOutLowerVCO(CC_PORTAMENTO_TIME, lowerData[P_glideTime]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_PORTAMENTO_TIME, lowerData[P_glideTime]);
+    }
     midiCCOut(CCglideTime, lowerData[P_glideTime]);
     midiCCOut71(CCglideTime, lowerData[P_glideTime]);
-    if (wholemode) {
-      midiCCOut62(WSglideTime, upperData[P_glideTime]);
-    }
   }
 }
 
@@ -2760,16 +2783,16 @@ void updateosc2Detune(boolean announce) {
     showCurrentParameterPage("OSC2 Detune", String(osc2Detunestr));
   }
   if (upperSW) {
-    midiCCOut62(WSdetune, upperData[P_osc2Detune]);
+    midiCCOutUpperVCO(CC_DETUNE, upperData[P_osc2Detune]);
     midiCCOut(CCosc2Detune, upperData[P_osc2Detune]);
     midiCCOut71(CCosc2Detune, upperData[P_osc2Detune]);
   } else {
-    midiCCOut61(WSdetune, lowerData[P_osc2Detune]);
+    midiCCOutLowerVCO(CC_DETUNE, lowerData[P_osc2Detune]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_DETUNE, lowerData[P_osc2Detune]);
+    }
     midiCCOut(CCosc2Detune, lowerData[P_osc2Detune]);
     midiCCOut71(CCosc2Detune, lowerData[P_osc2Detune]);
-    if (wholemode) {
-      midiCCOut62(WSdetune, upperData[P_osc2Detune]);
-    }
   }
 }
 
@@ -2778,16 +2801,16 @@ void updateosc2Interval(boolean announce) {
     showCurrentParameterPage("OSC2 Interval", String(osc2Intervalstr));
   }
   if (upperSW) {
-    midiCCOut62(WSinterval, upperData[P_osc2Interval]);
+    midiCCOutUpperVCO(CC_INTERVAL, upperData[P_osc2Interval]);
     midiCCOut(CCosc2Interval, upperData[P_osc2Interval]);
     midiCCOut71(CCosc2Interval, upperData[P_osc2Interval]);
   } else {
-    midiCCOut61(WSinterval, lowerData[P_osc2Interval]);
+    midiCCOutLowerVCO(CC_INTERVAL, lowerData[P_osc2Interval]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_INTERVAL, lowerData[P_osc2Interval]);
+    }
     midiCCOut(CCosc2Interval, lowerData[P_osc2Interval]);
     midiCCOut71(CCosc2Interval, lowerData[P_osc2Interval]);
-    if (wholemode) {
-      midiCCOut62(WSinterval, upperData[P_osc2Interval]);
-    }
   }
 }
 
@@ -2796,11 +2819,51 @@ void updatenoiseLevel(boolean announce) {
     showCurrentParameterPage("Noise Level", String(noiseLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_NOISE_LEVEL, upperData[P_noiseLevel]);
     midiCCOut(CCnoiseLevel, upperData[P_noiseLevel]);
     midiCCOut71(CCnoiseLevel, upperData[P_noiseLevel]);
   } else {
+    midiCCOutLowerFilter(VB_NOISE_LEVEL, lowerData[P_noiseLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_NOISE_LEVEL, lowerData[P_noiseLevel]);
+    }
     midiCCOut(CCnoiseLevel, lowerData[P_noiseLevel]);
     midiCCOut71(CCnoiseLevel, lowerData[P_noiseLevel]);
+  }
+}
+
+void updatenoiseSource(boolean announce) {
+
+  if (upperSW) {
+    if (upperData[P_noiseSource]) {
+      if (announce) {
+        showCurrentParameterPage("Noise Source", "White Noise");
+      }
+      midiCCOutUpperFilter(VB_PINK_WHITE, 127);
+    } else {
+      if (announce) {
+        showCurrentParameterPage("Noise Source", "Pink Noise");
+      }
+      midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+    }
+  } else {
+    if (lowerData[P_noiseSource]) {
+      if (announce) {
+        showCurrentParameterPage("Noise Source", "White Noise");
+      }
+      midiCCOutLowerFilter(VB_PINK_WHITE, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_PINK_WHITE, 127);
+      }
+    } else {
+      if (announce) {
+        showCurrentParameterPage("Noise Source", "Pink Noise");
+      }
+      midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+      }
+    }
   }
 }
 
@@ -2809,9 +2872,14 @@ void updateOsc2SawLevel(boolean announce) {
     showCurrentParameterPage("OSC2 Saw", int(osc2SawLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC2_SAW_LEVEL, upperData[P_osc2SawLevel]);
     midiCCOut(CCosc2SawLevel, upperData[P_osc2SawLevel]);
     midiCCOut71(CCosc2SawLevel, upperData[P_osc2SawLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC2_SAW_LEVEL, lowerData[P_osc2SawLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC2_SAW_LEVEL, lowerData[P_osc2SawLevel]);
+    }
     midiCCOut(CCosc2SawLevel, lowerData[P_osc2SawLevel]);
     midiCCOut71(CCosc2SawLevel, lowerData[P_osc2SawLevel]);
   }
@@ -2822,9 +2890,14 @@ void updateOsc1SawLevel(boolean announce) {
     showCurrentParameterPage("OSC1 Saw", int(osc1SawLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC1_SAW_LEVEL, upperData[P_osc1SawLevel]);
     midiCCOut(CCosc1SawLevel, upperData[P_osc1SawLevel]);
     midiCCOut71(CCosc1SawLevel, upperData[P_osc1SawLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC1_SAW_LEVEL, lowerData[P_osc1SawLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC1_SAW_LEVEL, lowerData[P_osc1SawLevel]);
+    }
     midiCCOut(CCosc1SawLevel, lowerData[P_osc1SawLevel]);
     midiCCOut71(CCosc1SawLevel, lowerData[P_osc1SawLevel]);
   }
@@ -2835,9 +2908,14 @@ void updateOsc2PulseLevel(boolean announce) {
     showCurrentParameterPage("OSC2 Pulse", int(osc2PulseLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC2_PULSE_LEVEL, upperData[P_osc2PulseLevel]);
     midiCCOut(CCosc2PulseLevel, upperData[P_osc2PulseLevel]);
     midiCCOut71(CCosc2PulseLevel, upperData[P_osc2PulseLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC2_PULSE_LEVEL, lowerData[P_osc2PulseLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC2_PULSE_LEVEL, lowerData[P_osc2PulseLevel]);
+    }
     midiCCOut(CCosc2PulseLevel, lowerData[P_osc2PulseLevel]);
     midiCCOut71(CCosc2PulseLevel, lowerData[P_osc2PulseLevel]);
   }
@@ -2848,9 +2926,14 @@ void updateOsc1PulseLevel(boolean announce) {
     showCurrentParameterPage("OSC1 Pulse", int(osc1PulseLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC1_PULSE_LEVEL, upperData[P_osc1PulseLevel]);
     midiCCOut(CCosc1PulseLevel, upperData[P_osc1PulseLevel]);
     midiCCOut71(CCosc1PulseLevel, upperData[P_osc1PulseLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC1_PULSE_LEVEL, lowerData[P_osc1PulseLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC1_PULSE_LEVEL, lowerData[P_osc1PulseLevel]);
+    }
     midiCCOut(CCosc1PulseLevel, lowerData[P_osc1PulseLevel]);
     midiCCOut71(CCosc1PulseLevel, lowerData[P_osc1PulseLevel]);
   }
@@ -2861,9 +2944,14 @@ void updateOsc2TriangleLevel(boolean announce) {
     showCurrentParameterPage("OSC2 Triangle", int(osc2TriangleLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC2_TRIANGLE_LEVEL, upperData[P_osc2TriangleLevel]);
     midiCCOut(CCosc2TriangleLevel, upperData[P_osc2TriangleLevel]);
     midiCCOut71(CCosc2TriangleLevel, upperData[P_osc2TriangleLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC2_TRIANGLE_LEVEL, lowerData[P_osc2TriangleLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC2_TRIANGLE_LEVEL, lowerData[P_osc2TriangleLevel]);
+    }
     midiCCOut(CCosc2TriangleLevel, lowerData[P_osc2TriangleLevel]);
     midiCCOut71(CCosc2TriangleLevel, lowerData[P_osc2TriangleLevel]);
   }
@@ -2874,9 +2962,14 @@ void updateOsc1SubLevel(boolean announce) {
     showCurrentParameterPage("OSC1 Sub", int(osc1SubLevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC1_SUB_LEVEL, upperData[P_osc1SubLevel]);
     midiCCOut(CCosc1SubLevel, upperData[P_osc1SubLevel]);
     midiCCOut71(CCosc1SubLevel, upperData[P_osc1SubLevel]);
   } else {
+    midiCCOutLowerFilter(VB_OSC1_SUB_LEVEL, lowerData[P_osc1SubLevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC1_SUB_LEVEL, lowerData[P_osc1SubLevel]);
+    }
     midiCCOut(CCosc1SubLevel, lowerData[P_osc1SubLevel]);
     midiCCOut71(CCosc1SubLevel, lowerData[P_osc1SubLevel]);
   }
@@ -2887,9 +2980,14 @@ void updateamDepth(boolean announce) {
     showCurrentParameterPage("AM Depth", int(amDepthstr));
   }
   if (upperSW) {
+    midiCCOutUpperVCO(CC_LFO1_AMP_DEPTH, upperData[P_amDepth]);
     midiCCOut(CCamDepth, upperData[P_amDepth]);
     midiCCOut71(CCamDepth, upperData[P_amDepth]);
   } else {
+    midiCCOutLowerVCO(CC_LFO1_AMP_DEPTH, lowerData[P_amDepth]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO1_AMP_DEPTH, lowerData[P_amDepth]);
+    }
     midiCCOut(CCamDepth, lowerData[P_amDepth]);
     midiCCOut71(CCamDepth, lowerData[P_amDepth]);
   }
@@ -2900,9 +2998,14 @@ void updateFilterCutoff(boolean announce) {
     showCurrentParameterPage("Cutoff", String(filterCutoffstr) + " Hz");
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_FILTER_CUTOFF, upperData[P_filterCutoff]);
     midiCCOut(CCfilterCutoff, upperData[P_filterCutoff]);
     midiCCOut71(CCfilterCutoff, upperData[P_filterCutoff]);
   } else {
+    midiCCOutLowerFilter(VB_FILTER_CUTOFF, lowerData[P_filterCutoff]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_FILTER_CUTOFF, lowerData[P_filterCutoff]);
+    }
     midiCCOut(CCfilterCutoff, lowerData[P_filterCutoff]);
     midiCCOut71(CCfilterCutoff, lowerData[P_filterCutoff]);
   }
@@ -2913,9 +3016,14 @@ void updatefilterLFO(boolean announce) {
     showCurrentParameterPage("TM depth", int(filterLFOstr));
   }
   if (upperSW) {
+    midiCCOutUpperVCO(CC_LFO1_FILTER_DEPTH, upperData[P_filterLFO]);
     midiCCOut(CCfilterLFO, upperData[P_filterLFO]);
     midiCCOut71(CCfilterLFO, upperData[P_filterLFO]);
   } else {
+    midiCCOutLowerVCO(CC_LFO1_FILTER_DEPTH, lowerData[P_filterLFO]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO1_FILTER_DEPTH, lowerData[P_filterLFO]);
+    }
     midiCCOut(CCfilterLFO, lowerData[P_filterLFO]);
     midiCCOut71(CCfilterLFO, lowerData[P_filterLFO]);
   }
@@ -2926,9 +3034,14 @@ void updatefilterRes(boolean announce) {
     showCurrentParameterPage("Resonance", int(filterResstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_FILTER_RES, upperData[P_filterRes]);
     midiCCOut(CCfilterRes, upperData[P_filterRes]);
     midiCCOut71(CCfilterRes, upperData[P_filterRes]);
   } else {
+    midiCCOutLowerFilter(VB_FILTER_RES, lowerData[P_filterRes]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_FILTER_RES, lowerData[P_filterRes]);
+    }
     midiCCOut(CCfilterRes, lowerData[P_filterRes]);
     midiCCOut71(CCfilterRes, lowerData[P_filterRes]);
   }
@@ -2947,11 +3060,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P LowPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 0);
+        midiCCOutUpperFilter(VB_FILTER_B, 0);
+        midiCCOutUpperFilter(VB_FILTER_C, 0);
         midiCCOut72(CCfilterType, 0);
         midiCCOut(CCfilterType, 0);
-        //srp.writePin(FILTERA_UPPER, LOW);
-        //srp.writePin(FILTERB_UPPER, LOW);
-        //srp.writePin(FILTERC_UPPER, LOW);
         break;
 
       case 1:
@@ -2964,11 +3077,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P LowPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 127);
+        midiCCOutUpperFilter(VB_FILTER_B, 0);
+        midiCCOutUpperFilter(VB_FILTER_C, 0);
         midiCCOut72(CCfilterType, 1);
         midiCCOut(CCfilterType, 1);
-        //srp.writePin(FILTERA_UPPER, HIGH);
-        //srp.writePin(FILTERB_UPPER, LOW);
-        //srp.writePin(FILTERC_UPPER, LOW);
         break;
 
       case 2:
@@ -2981,11 +3094,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P HighPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 0);
+        midiCCOutUpperFilter(VB_FILTER_B, 127);
+        midiCCOutUpperFilter(VB_FILTER_C, 0);
         midiCCOut72(CCfilterType, 2);
         midiCCOut(CCfilterType, 2);
-        //srp.writePin(FILTERA_UPPER, LOW);
-        //srp.writePin(FILTERB_UPPER, HIGH);
-        //srp.writePin(FILTERC_UPPER, LOW);
         break;
 
       case 3:
@@ -2998,11 +3111,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P HighPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 127);
+        midiCCOutUpperFilter(VB_FILTER_B, 127);
+        midiCCOutUpperFilter(VB_FILTER_C, 0);
         midiCCOut72(CCfilterType, 3);
         midiCCOut(CCfilterType, 3);
-        //srp.writePin(FILTERA_UPPER, HIGH);
-        //srp.writePin(FILTERB_UPPER, HIGH);
-        //srp.writePin(FILTERC_UPPER, LOW);
         break;
 
       case 4:
@@ -3015,11 +3128,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P BandPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 0);
+        midiCCOutUpperFilter(VB_FILTER_B, 0);
+        midiCCOutUpperFilter(VB_FILTER_C, 127);
         midiCCOut72(CCfilterType, 4);
         midiCCOut(CCfilterType, 4);
-        //srp.writePin(FILTERA_UPPER, LOW);
-        //srp.writePin(FILTERB_UPPER, LOW);
-        //srp.writePin(FILTERC_UPPER, HIGH);
         break;
 
       case 5:
@@ -3032,11 +3145,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P BandPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 127);
+        midiCCOutUpperFilter(VB_FILTER_B, 0);
+        midiCCOutUpperFilter(VB_FILTER_C, 127);
         midiCCOut72(CCfilterType, 5);
         midiCCOut(CCfilterType, 5);
-        //srp.writePin(FILTERA_UPPER, HIGH);
-        //srp.writePin(FILTERB_UPPER, LOW);
-        //srp.writePin(FILTERC_UPPER, HIGH);
         break;
 
       case 6:
@@ -3049,11 +3162,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("3P AllPass"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 0);
+        midiCCOutUpperFilter(VB_FILTER_B, 127);
+        midiCCOutUpperFilter(VB_FILTER_C, 127);
         midiCCOut72(CCfilterType, 6);
         midiCCOut(CCfilterType, 6);
-        //srp.writePin(FILTERA_UPPER, LOW);
-        //srp.writePin(FILTERB_UPPER, HIGH);
-        //srp.writePin(FILTERC_UPPER, HIGH);
         break;
 
       case 7:
@@ -3066,11 +3179,11 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("Notch"));
           }
         }
+        midiCCOutUpperFilter(VB_FILTER_A, 127);
+        midiCCOutUpperFilter(VB_FILTER_B, 127);
+        midiCCOutUpperFilter(VB_FILTER_C, 127);
         midiCCOut72(CCfilterType, 7);
         midiCCOut(CCfilterType, 7);
-        //srp.writePin(FILTERA_UPPER, HIGH);
-        //srp.writePin(FILTERB_UPPER, HIGH);
-        //srp.writePin(FILTERC_UPPER, HIGH);
         break;
     }
   } else {
@@ -3085,16 +3198,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P LowPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 0);
+        midiCCOutLowerFilter(VB_FILTER_B, 0);
+        midiCCOutLowerFilter(VB_FILTER_C, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 0);
+          midiCCOutUpperFilter(VB_FILTER_B, 0);
+          midiCCOutUpperFilter(VB_FILTER_C, 0);
+        }
         midiCCOut72(CCfilterType, 0);
         midiCCOut(CCfilterType, 0);
-        //srp.writePin(FILTERA_LOWER, LOW);
-        //srp.writePin(FILTERB_LOWER, LOW);
-        //srp.writePin(FILTERC_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, LOW);
-          //srp.writePin(FILTERB_UPPER, LOW);
-          //srp.writePin(FILTERC_UPPER, LOW);
-        }
         break;
 
       case 1:
@@ -3107,16 +3220,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P LowPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 127);
+        midiCCOutLowerFilter(VB_FILTER_B, 0);
+        midiCCOutLowerFilter(VB_FILTER_C, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 127);
+          midiCCOutUpperFilter(VB_FILTER_B, 0);
+          midiCCOutUpperFilter(VB_FILTER_C, 0);
+        }
         midiCCOut72(CCfilterType, 1);
         midiCCOut(CCfilterType, 1);
-        //srp.writePin(FILTERA_LOWER, HIGH);
-        //srp.writePin(FILTERB_LOWER, LOW);
-        //srp.writePin(FILTERC_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, HIGH);
-          //srp.writePin(FILTERB_UPPER, LOW);
-          //srp.writePin(FILTERC_UPPER, LOW);
-        }
         break;
 
       case 2:
@@ -3129,16 +3242,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P HighPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 0);
+        midiCCOutLowerFilter(VB_FILTER_B, 127);
+        midiCCOutLowerFilter(VB_FILTER_C, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 0);
+          midiCCOutUpperFilter(VB_FILTER_B, 127);
+          midiCCOutUpperFilter(VB_FILTER_C, 0);
+        }
         midiCCOut72(CCfilterType, 2);
         midiCCOut(CCfilterType, 2);
-        //srp.writePin(FILTERA_LOWER, LOW);
-        //srp.writePin(FILTERB_LOWER, HIGH);
-        //srp.writePin(FILTERC_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, LOW);
-          //srp.writePin(FILTERB_UPPER, HIGH);
-          //srp.writePin(FILTERC_UPPER, LOW);
-        }
         break;
 
       case 3:
@@ -3151,16 +3264,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P HighPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 127);
+        midiCCOutLowerFilter(VB_FILTER_B, 127);
+        midiCCOutLowerFilter(VB_FILTER_C, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 127);
+          midiCCOutUpperFilter(VB_FILTER_B, 127);
+          midiCCOutUpperFilter(VB_FILTER_C, 0);
+        }
         midiCCOut72(CCfilterType, 3);
         midiCCOut(CCfilterType, 3);
-        //srp.writePin(FILTERA_LOWER, HIGH);
-        //srp.writePin(FILTERB_LOWER, HIGH);
-        //srp.writePin(FILTERC_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, HIGH);
-          //srp.writePin(FILTERB_UPPER, HIGH);
-          //srp.writePin(FILTERC_UPPER, LOW);
-        }
         break;
 
       case 4:
@@ -3173,16 +3286,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("4P BandPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 0);
+        midiCCOutLowerFilter(VB_FILTER_B, 0);
+        midiCCOutLowerFilter(VB_FILTER_C, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 0);
+          midiCCOutUpperFilter(VB_FILTER_B, 0);
+          midiCCOutUpperFilter(VB_FILTER_C, 127);
+        }
         midiCCOut72(CCfilterType, 4);
         midiCCOut(CCfilterType, 4);
-        //srp.writePin(FILTERA_LOWER, LOW);
-        //srp.writePin(FILTERB_LOWER, LOW);
-        //srp.writePin(FILTERC_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, LOW);
-          //srp.writePin(FILTERB_UPPER, LOW);
-          //srp.writePin(FILTERC_UPPER, HIGH);
-        }
         break;
 
       case 5:
@@ -3195,16 +3308,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("2P BandPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 127);
+        midiCCOutLowerFilter(VB_FILTER_B, 0);
+        midiCCOutLowerFilter(VB_FILTER_C, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 127);
+          midiCCOutUpperFilter(VB_FILTER_B, 0);
+          midiCCOutUpperFilter(VB_FILTER_C, 127);
+        }
         midiCCOut72(CCfilterType, 5);
         midiCCOut(CCfilterType, 5);
-        //srp.writePin(FILTERA_LOWER, HIGH);
-        //srp.writePin(FILTERB_LOWER, LOW);
-        //srp.writePin(FILTERC_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, HIGH);
-          //srp.writePin(FILTERB_UPPER, LOW);
-          //srp.writePin(FILTERC_UPPER, HIGH);
-        }
         break;
 
 
@@ -3218,16 +3331,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("3P AllPass"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 0);
+        midiCCOutLowerFilter(VB_FILTER_B, 127);
+        midiCCOutLowerFilter(VB_FILTER_C, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 0);
+          midiCCOutUpperFilter(VB_FILTER_B, 127);
+          midiCCOutUpperFilter(VB_FILTER_C, 127);
+        }
         midiCCOut72(CCfilterType, 6);
         midiCCOut(CCfilterType, 6);
-        //srp.writePin(FILTERA_LOWER, LOW);
-        //srp.writePin(FILTERB_LOWER, HIGH);
-        //srp.writePin(FILTERC_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, LOW);
-          //srp.writePin(FILTERB_UPPER, HIGH);
-          //srp.writePin(FILTERC_UPPER, HIGH);
-        }
         break;
 
       case 7:
@@ -3240,16 +3353,16 @@ void updateFilterType(boolean announce) {
             showCurrentParameterPage("Filter Type", String("Notch"));
           }
         }
+        midiCCOutLowerFilter(VB_FILTER_A, 127);
+        midiCCOutLowerFilter(VB_FILTER_B, 127);
+        midiCCOutLowerFilter(VB_FILTER_C, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_A, 127);
+          midiCCOutUpperFilter(VB_FILTER_B, 127);
+          midiCCOutUpperFilter(VB_FILTER_C, 127);
+        }
         midiCCOut72(CCfilterType, 7);
         midiCCOut(CCfilterType, 7);
-        //srp.writePin(FILTERA_LOWER, HIGH);
-        //srp.writePin(FILTERB_LOWER, HIGH);
-        //srp.writePin(FILTERC_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(FILTERA_UPPER, HIGH);
-          //srp.writePin(FILTERB_UPPER, HIGH);
-          //srp.writePin(FILTERC_UPPER, HIGH);
-        }
         break;
     }
   }
@@ -3260,9 +3373,14 @@ void updatefilterEGlevel(boolean announce) {
     showCurrentParameterPage("EG Depth", int(filterEGlevelstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_EG_DEPTH, upperData[P_filterEGlevel]);
     midiCCOut(CCfilterEGlevel, upperData[P_filterEGlevel]);
     midiCCOut71(CCfilterEGlevel, upperData[P_filterEGlevel]);
   } else {
+    midiCCOutLowerFilter(VB_EG_DEPTH, lowerData[P_filterEGlevel]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EG_DEPTH, lowerData[P_filterEGlevel]);
+    }
     midiCCOut(CCfilterEGlevel, lowerData[P_filterEGlevel]);
     midiCCOut71(CCfilterEGlevel, lowerData[P_filterEGlevel]);
   }
@@ -3273,15 +3391,15 @@ void updatekeytrack(boolean announce) {
     showCurrentParameterPage("Keytrack", int(keytrackstr));
   }
   if (upperSW) {
-    midiCCOut62(WSkeytrack, upperData[P_keytrack]);
+    midiCCOutUpperVCO(WSkeytrack, upperData[P_keytrack]);
     midiCCOut(CCkeyTrack, upperData[P_keytrack]);
     midiCCOut71(CCkeyTrack, upperData[P_keytrack]);
   } else {
-    midiCCOut61(WSkeytrack, lowerData[P_keytrack]);
+    midiCCOutLowerVCO(WSkeytrack, lowerData[P_keytrack]);
     midiCCOut(CCkeyTrack, lowerData[P_keytrack]);
     midiCCOut71(CCkeyTrack, lowerData[P_keytrack]);
     if (wholemode) {
-      midiCCOut62(WSkeytrack, upperData[P_keytrack]);
+      midiCCOutUpperVCO(WSkeytrack, upperData[P_keytrack]);
     }
   }
 }
@@ -3292,9 +3410,14 @@ void updateLFORate(boolean announce) {
     showCurrentParameterPage("LFO Rate", String(LFORatestr) + " Hz");
   }
   if (upperSW) {
+    midiCCOutUpperVCO(CC_LFO1_RATE, upperData[P_LFORate]);
     midiCCOut(CCLFORate, upperData[P_LFORate]);
     midiCCOut71(CCLFORate, upperData[P_LFORate]);
   } else {
+    midiCCOutLowerVCO(CC_LFO1_RATE, lowerData[P_LFORate]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO1_RATE, upperData[P_LFORate]);
+    }
     midiCCOut(CCLFORate, lowerData[P_LFORate]);
     midiCCOut71(CCLFORate, lowerData[P_LFORate]);
   }
@@ -3305,9 +3428,14 @@ void updateLFODelay(boolean announce) {
     showCurrentParameterPage("LFO Delay", String(LFODelaystr));
   }
   if (upperSW) {
+    midiCCOutUpperVCO(CC_LFO1_DELAY_TIME, upperData[P_LFODelay]);
     midiCCOut(CCLFODelay, upperData[P_LFODelay]);
     midiCCOut71(CCLFODelay, upperData[P_LFODelay]);
   } else {
+    midiCCOutLowerVCO(CC_LFO1_DELAY_TIME, lowerData[P_LFODelay]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_LFO1_DELAY_TIME, upperData[P_LFODelay]);
+    }
     midiCCOut(CCLFODelay, lowerData[P_LFODelay]);
     midiCCOut71(CCLFODelay, lowerData[P_LFODelay]);
   }
@@ -3318,16 +3446,16 @@ void updatemodWheelDepth(boolean announce) {
     showCurrentParameterPage("Mod Wheel Depth", String(modWheelDepthstr));
   }
   if (upperSW) {
-    midiCCOut62(WSmodDepth, upperData[P_modWheelDepth]);
+    midiCCOutUpperVCO(CC_FM_MOD_WHEEL, upperData[P_modWheelDepth]);
     midiCCOut(CCmodWheelDepth, upperData[P_modWheelDepth]);
     midiCCOut71(CCmodWheelDepth, upperData[P_modWheelDepth]);
   } else {
-    midiCCOut61(WSmodDepth, lowerData[P_modWheelDepth]);
+    midiCCOutLowerVCO(CC_FM_MOD_WHEEL, lowerData[P_modWheelDepth]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_FM_MOD_WHEEL, lowerData[P_modWheelDepth]);
+    }
     midiCCOut(CCmodWheelDepth, lowerData[P_modWheelDepth]);
     midiCCOut71(CCmodWheelDepth, lowerData[P_modWheelDepth]);
-    if (wholemode) {
-      midiCCOut62(WSmodDepth, upperData[P_modWheelDepth]);
-    }
   }
 }
 
@@ -3336,14 +3464,16 @@ void updatePitchBendDepth(boolean announce) {
     showCurrentParameterPage("Pitch Bend Depth", String(PitchBendLevelstr));
   }
   if (upperSW) {
-    midiCCOut62(WSbendRange, upperData[P_PitchBendLevel]);
+    midiCCOutUpperVCO(CC_BEND_RANGE, upperData[P_PitchBendLevel]);
+    midiCCOut(CCPitchBend, upperData[P_PitchBendLevel]);
     midiCCOut71(CCPitchBend, upperData[P_PitchBendLevel]);
   } else {
-    midiCCOut61(WSbendRange, lowerData[P_PitchBendLevel]);
-    midiCCOut71(CCPitchBend, lowerData[P_PitchBendLevel]);
+    midiCCOutLowerVCO(CC_BEND_RANGE, lowerData[P_PitchBendLevel]);
     if (wholemode) {
-      midiCCOut62(WSbendRange, upperData[P_PitchBendLevel]);
+      midiCCOutUpperVCO(CC_BEND_RANGE, lowerData[P_PitchBendLevel]);
     }
+    midiCCOut(CCPitchBend, lowerData[P_PitchBendLevel]);
+    midiCCOut71(CCPitchBend, lowerData[P_PitchBendLevel]);
   }
 }
 
@@ -3352,9 +3482,14 @@ void updateeffectPot1(boolean announce) {
     showCurrentParameterPage("Effect Pot 1", String(effectPot1str));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_EFFECT_POT1, upperData[P_effectPot1]);
     midiCCOut(CCeffectPot1, upperData[P_effectPot1]);
     midiCCOut71(CCeffectPot1, upperData[P_effectPot1]);
   } else {
+    midiCCOutLowerFilter(VB_EFFECT_POT1, lowerData[P_effectPot1]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EFFECT_POT1, lowerData[P_effectPot1]);
+    }
     midiCCOut(CCeffectPot1, lowerData[P_effectPot1]);
     midiCCOut71(CCeffectPot1, lowerData[P_effectPot1]);
   }
@@ -3365,9 +3500,14 @@ void updateeffectPot2(boolean announce) {
     showCurrentParameterPage("Effect Pot 2", String(effectPot2str));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_EFFECT_POT2, upperData[P_effectPot2]);
     midiCCOut(CCeffectPot2, upperData[P_effectPot2]);
     midiCCOut71(CCeffectPot2, upperData[P_effectPot2]);
   } else {
+    midiCCOutLowerFilter(VB_EFFECT_POT2, lowerData[P_effectPot2]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EFFECT_POT2, lowerData[P_effectPot2]);
+    }
     midiCCOut(CCeffectPot2, lowerData[P_effectPot2]);
     midiCCOut71(CCeffectPot2, lowerData[P_effectPot2]);
   }
@@ -3378,9 +3518,14 @@ void updateeffectPot3(boolean announce) {
     showCurrentParameterPage("Effect Pot 3", String(effectPot3str));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_EFFECT_POT3, upperData[P_effectPot3]);
     midiCCOut(CCeffectPot3, upperData[P_effectPot3]);
     midiCCOut71(CCeffectPot3, upperData[P_effectPot3]);
   } else {
+    midiCCOutLowerFilter(VB_EFFECT_POT3, lowerData[P_effectPot3]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EFFECT_POT3, lowerData[P_effectPot3]);
+    }
     midiCCOut(CCeffectPot3, lowerData[P_effectPot3]);
     midiCCOut71(CCeffectPot3, lowerData[P_effectPot3]);
   }
@@ -3391,9 +3536,14 @@ void updateeffectsMix(boolean announce) {
     showCurrentParameterPage("Effects Mix", String(effectsMixstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_EFFECT_MIX, upperData[P_effectsMix]);
     midiCCOut(CCeffectsMix, upperData[P_effectsMix]);
     midiCCOut71(CCeffectsMix, upperData[P_effectsMix]);
   } else {
+    midiCCOutLowerFilter(VB_EFFECT_MIX, lowerData[P_effectsMix]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EFFECT_MIX, lowerData[P_effectsMix]);
+    }
     midiCCOut(CCeffectsMix, lowerData[P_effectsMix]);
     midiCCOut71(CCeffectsMix, lowerData[P_effectsMix]);
   }
@@ -3532,9 +3682,14 @@ void updatefilterAttack(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCF_ATTACK, upperData[P_filterAttack]);
     midiCCOut(CCfilterAttack, upperData[P_filterAttack]);
     midiCCOut71(CCfilterAttack, upperData[P_filterAttack]);
   } else {
+    midiCCOutLowerFilter(VB_VCF_ATTACK, lowerData[P_filterAttack]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_VCF_ATTACK, lowerData[P_filterAttack]);
+    }
     midiCCOut(CCfilterAttack, lowerData[P_filterAttack]);
     midiCCOut71(CCfilterAttack, lowerData[P_filterAttack]);
   }
@@ -3549,9 +3704,14 @@ void updatefilterDecay(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCF_DECAY, upperData[P_filterDecay]);
     midiCCOut(CCfilterDecay, upperData[P_filterDecay]);
     midiCCOut71(CCfilterDecay, upperData[P_filterDecay]);
   } else {
+    midiCCOutLowerFilter(VB_VCF_DECAY, lowerData[P_filterDecay]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_VCF_DECAY, lowerData[P_filterDecay]);
+    }
     midiCCOut(CCfilterDecay, lowerData[P_filterDecay]);
     midiCCOut71(CCfilterDecay, lowerData[P_filterDecay]);
   }
@@ -3562,9 +3722,14 @@ void updatefilterSustain(boolean announce) {
     showCurrentParameterPage("VCF Sustain", String(filterSustainstr), FILTER_ENV);
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCF_SUSTAIN, upperData[P_filterSustain]);
     midiCCOut(CCfilterSustain, upperData[P_filterSustain]);
     midiCCOut71(CCfilterSustain, upperData[P_filterSustain]);
   } else {
+    midiCCOutLowerFilter(VB_VCF_SUSTAIN, lowerData[P_filterSustain]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_VCF_SUSTAIN, lowerData[P_filterSustain]);
+    }
     midiCCOut(CCfilterSustain, lowerData[P_filterSustain]);
     midiCCOut71(CCfilterSustain, lowerData[P_filterSustain]);
   }
@@ -3579,9 +3744,14 @@ void updatefilterRelease(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCF_RELEASE, upperData[P_filterRelease]);
     midiCCOut(CCfilterRelease, upperData[P_filterRelease]);
     midiCCOut71(CCfilterRelease, upperData[P_filterRelease]);
   } else {
+    midiCCOutLowerFilter(VB_VCF_RELEASE, lowerData[P_filterRelease]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_VCF_RELEASE, lowerData[P_filterRelease]);
+    }
     midiCCOut(CCfilterRelease, lowerData[P_filterRelease]);
     midiCCOut71(CCfilterRelease, lowerData[P_filterRelease]);
   }
@@ -3596,16 +3766,19 @@ void updateampAttack(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCA_ATTACK, upperData[P_ampAttack]);
     midiCCOut(CCampAttack, upperData[P_ampAttack]);
     midiCCOut71(CCampAttack, upperData[P_ampAttack]);
     upperData[P_oldampAttack] = upperData[P_ampAttack];
   } else {
-    midiCCOut(CCampAttack, lowerData[P_ampAttack]);
-    midiCCOut71(CCampAttack, lowerData[P_ampAttack]);
+    midiCCOutLowerFilter(VB_VCA_ATTACK, lowerData[P_ampAttack]);
     lowerData[P_oldampAttack] = lowerData[P_ampAttack];
     if (wholemode) {
+      midiCCOutUpperFilter(VB_VCA_ATTACK, lowerData[P_ampAttack]);
       upperData[P_oldampAttack] = lowerData[P_oldampAttack];
     }
+    midiCCOut(CCampAttack, lowerData[P_ampAttack]);
+    midiCCOut71(CCampAttack, lowerData[P_ampAttack]);
   }
 }
 
@@ -3618,16 +3791,19 @@ void updateampDecay(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCA_DECAY, upperData[P_ampDecay]);
     midiCCOut(CCampDecay, upperData[P_ampDecay]);
     midiCCOut71(CCampDecay, upperData[P_ampDecay]);
     upperData[P_oldampDecay] = upperData[P_ampDecay];
   } else {
-    midiCCOut(CCampDecay, lowerData[P_ampDecay]);
-    midiCCOut71(CCampDecay, lowerData[P_ampDecay]);
+    midiCCOutLowerFilter(VB_VCA_DECAY, lowerData[P_ampDecay]);
     lowerData[P_oldampDecay] = lowerData[P_ampDecay];
     if (wholemode) {
+      midiCCOutUpperFilter(VB_VCA_DECAY, lowerData[P_ampDecay]);
       upperData[P_oldampDecay] = lowerData[P_oldampDecay];
     }
+    midiCCOut(CCampDecay, lowerData[P_ampDecay]);
+    midiCCOut71(CCampDecay, lowerData[P_ampDecay]);
   }
 }
 
@@ -3636,16 +3812,19 @@ void updateampSustain(boolean announce) {
     showCurrentParameterPage("VCA Sustain", String(ampSustainstr), AMP_ENV);
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCA_SUSTAIN, upperData[P_ampSustain]);
     midiCCOut(CCampSustain, upperData[P_ampSustain]);
     midiCCOut71(CCampSustain, upperData[P_ampSustain]);
     upperData[P_oldampSustain] = upperData[P_ampSustain];
   } else {
-    midiCCOut(CCampSustain, lowerData[P_ampSustain]);
-    midiCCOut71(CCampSustain, lowerData[P_ampSustain]);
+    midiCCOutLowerFilter(VB_VCA_SUSTAIN, lowerData[P_ampSustain]);
     lowerData[P_oldampSustain] = lowerData[P_ampSustain];
     if (wholemode) {
+      midiCCOutUpperFilter(VB_VCA_SUSTAIN, lowerData[P_ampSustain]);
       upperData[P_oldampSustain] = lowerData[P_oldampSustain];
     }
+    midiCCOut(CCampSustain, lowerData[P_ampSustain]);
+    midiCCOut71(CCampSustain, lowerData[P_ampSustain]);
   }
 }
 
@@ -3658,16 +3837,19 @@ void updateampRelease(boolean announce) {
     }
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VCA_RELEASE, upperData[P_ampRelease]);
     midiCCOut(CCampRelease, upperData[P_ampRelease]);
     midiCCOut71(CCampRelease, upperData[P_ampRelease]);
     upperData[P_oldampRelease] = upperData[P_ampRelease];
   } else {
-    midiCCOut(CCampRelease, lowerData[P_ampRelease]);
-    midiCCOut71(CCampRelease, lowerData[P_ampRelease]);
+    midiCCOutLowerFilter(VB_VCA_RELEASE, lowerData[P_ampRelease]);
     lowerData[P_oldampRelease] = lowerData[P_ampRelease];
     if (wholemode) {
+      midiCCOutUpperFilter(VB_VCA_RELEASE, lowerData[P_ampRelease]);
       upperData[P_oldampRelease] = lowerData[P_oldampRelease];
     }
+    midiCCOut(CCampRelease, lowerData[P_ampRelease]);
+    midiCCOut71(CCampRelease, lowerData[P_ampRelease]);
   }
 }
 
@@ -3676,9 +3858,14 @@ void updatevolumeControl(boolean announce) {
     showCurrentParameterPage("Volume", int(volumeControlstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_VOLUME, upperData[P_volumeControl]);
     midiCCOut(CCvolumeControl, upperData[P_volumeControl]);
     midiCCOut71(CCvolumeControl, upperData[P_volumeControl]);
   } else {
+    midiCCOutLowerFilter(VB_VOLUME, lowerData[P_volumeControl]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_VOLUME, lowerData[P_volumeControl]);
+    }
     midiCCOut(CCvolumeControl, lowerData[P_volumeControl]);
     midiCCOut71(CCvolumeControl, lowerData[P_volumeControl]);
   }
@@ -3689,9 +3876,14 @@ void updatePM_DCO2(boolean announce) {
     showCurrentParameterPage("PolyMod DCO2", int(pmDCO2str));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC1_PM_DCO, upperData[P_pmDCO2]);
     midiCCOut(CCPM_DCO2, upperData[P_pmDCO2]);
     midiCCOut71(CCPM_DCO2, upperData[P_pmDCO2]);
   } else {
+    midiCCOutLowerFilter(VB_OSC1_PM_DCO, lowerData[P_pmDCO2]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC1_PM_DCO, lowerData[P_pmDCO2]);
+    }
     midiCCOut(CCPM_DCO2, lowerData[P_pmDCO2]);
     midiCCOut71(CCPM_DCO2, lowerData[P_pmDCO2]);
   }
@@ -3702,9 +3894,14 @@ void updatePM_FilterEnv(boolean announce) {
     showCurrentParameterPage("PolyMod Filter Env", int(pmFilterEnvstr));
   }
   if (upperSW) {
+    midiCCOutUpperFilter(VB_OSC1_PM_ENV, upperData[P_pmFilterEnv]);
     midiCCOut(CCPM_FilterEnv, upperData[P_pmFilterEnv]);
     midiCCOut71(CCPM_FilterEnv, upperData[P_pmFilterEnv]);
   } else {
+    midiCCOutLowerFilter(VB_OSC1_PM_ENV, lowerData[P_pmFilterEnv]);
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_OSC1_PM_ENV, lowerData[P_pmFilterEnv]);
+    }
     midiCCOut(CCPM_FilterEnv, lowerData[P_pmFilterEnv]);
     midiCCOut71(CCPM_FilterEnv, lowerData[P_pmFilterEnv]);
   }
@@ -3756,6 +3953,7 @@ void updateplayMode(boolean announce) {
     }
     midiCCOut72(CCplayMode, 0);
     midiCCOut(CCplayMode, 0);
+    allNotesOff();
     //srp.writePin(UPPER_RELAY_2, HIGH);
     //srp.writePin(UPPER_RELAY_3, HIGH);
     wholemode = true;
@@ -3773,6 +3971,7 @@ void updateplayMode(boolean announce) {
     }
     midiCCOut72(CCplayMode, 1);
     midiCCOut(CCplayMode, 1);
+    allNotesOff();
     //srp.writePin(UPPER_RELAY_2, LOW);
     //srp.writePin(UPPER_RELAY_3, LOW);
     wholemode = false;
@@ -3784,6 +3983,7 @@ void updateplayMode(boolean announce) {
     }
     midiCCOut72(CCplayMode, 2);
     midiCCOut(CCplayMode, 2);
+    allNotesOff();
     //srp.writePin(UPPER_RELAY_2, LOW);
     //srp.writePin(UPPER_RELAY_3, LOW);
     wholemode = false;
@@ -3860,9 +4060,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "1");
       }
-      //srp.writePin(EFFECT_0_UPPER, LOW);
-      //srp.writePin(EFFECT_1_UPPER, LOW);
-      //srp.writePin(EFFECT_2_UPPER, LOW);
+      midiCCOutUpperFilter(VB_EFFECT_0, 0);
+      midiCCOutUpperFilter(VB_EFFECT_1, 0);
+      midiCCOutUpperFilter(VB_EFFECT_2, 0);
       midiCCOut72(CCeffectNumSW, 0);
       midiCCOut(CCeffectNumSW, 0);
 
@@ -3870,9 +4070,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "2");
       }
-      //srp.writePin(EFFECT_0_UPPER, HIGH);
-      //srp.writePin(EFFECT_1_UPPER, LOW);
-      //srp.writePin(EFFECT_2_UPPER, LOW);
+      midiCCOutUpperFilter(VB_EFFECT_0, 127);
+      midiCCOutUpperFilter(VB_EFFECT_1, 0);
+      midiCCOutUpperFilter(VB_EFFECT_2, 0);
       midiCCOut72(CCeffectNumSW, 1);
       midiCCOut(CCeffectNumSW, 1);
 
@@ -3880,9 +4080,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "3");
       }
-      //srp.writePin(EFFECT_0_UPPER, LOW);
-      //srp.writePin(EFFECT_1_UPPER, HIGH);
-      //srp.writePin(EFFECT_2_UPPER, LOW);
+      midiCCOutUpperFilter(VB_EFFECT_0, 0);
+      midiCCOutUpperFilter(VB_EFFECT_1, 127);
+      midiCCOutUpperFilter(VB_EFFECT_2, 0);
       midiCCOut72(CCeffectNumSW, 2);
       midiCCOut(CCeffectNumSW, 2);
 
@@ -3890,9 +4090,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "4");
       }
-      //srp.writePin(EFFECT_0_UPPER, HIGH);
-      //srp.writePin(EFFECT_1_UPPER, HIGH);
-      //srp.writePin(EFFECT_2_UPPER, LOW);
+      midiCCOutUpperFilter(VB_EFFECT_0, 127);
+      midiCCOutUpperFilter(VB_EFFECT_1, 127);
+      midiCCOutUpperFilter(VB_EFFECT_2, 0);
       midiCCOut72(CCeffectNumSW, 3);
       midiCCOut(CCeffectNumSW, 3);
 
@@ -3900,9 +4100,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "5");
       }
-      //srp.writePin(EFFECT_0_UPPER, LOW);
-      //srp.writePin(EFFECT_1_UPPER, LOW);
-      //srp.writePin(EFFECT_2_UPPER, HIGH);
+      midiCCOutUpperFilter(VB_EFFECT_0, 0);
+      midiCCOutUpperFilter(VB_EFFECT_1, 0);
+      midiCCOutUpperFilter(VB_EFFECT_2, 127);
       midiCCOut72(CCeffectNumSW, 4);
       midiCCOut(CCeffectNumSW, 4);
 
@@ -3910,9 +4110,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "6");
       }
-      //srp.writePin(EFFECT_0_UPPER, HIGH);
-      //srp.writePin(EFFECT_1_UPPER, LOW);
-      //srp.writePin(EFFECT_2_UPPER, HIGH);
+      midiCCOutUpperFilter(VB_EFFECT_0, 127);
+      midiCCOutUpperFilter(VB_EFFECT_1, 0);
+      midiCCOutUpperFilter(VB_EFFECT_2, 127);
       midiCCOut72(CCeffectNumSW, 5);
       midiCCOut(CCeffectNumSW, 5);
 
@@ -3920,9 +4120,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "7");
       }
-      //srp.writePin(EFFECT_0_UPPER, LOW);
-      //srp.writePin(EFFECT_1_UPPER, HIGH);
-      //srp.writePin(EFFECT_2_UPPER, HIGH);
+      midiCCOutUpperFilter(VB_EFFECT_0, 0);
+      midiCCOutUpperFilter(VB_EFFECT_1, 127);
+      midiCCOutUpperFilter(VB_EFFECT_2, 127);
       midiCCOut72(CCeffectNumSW, 6);
       midiCCOut(CCeffectNumSW, 6);
 
@@ -3930,9 +4130,9 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "8");
       }
-      //srp.writePin(EFFECT_0_UPPER, HIGH);
-      //srp.writePin(EFFECT_1_UPPER, HIGH);
-      //srp.writePin(EFFECT_2_UPPER, HIGH);
+      midiCCOutUpperFilter(VB_EFFECT_0, 127);
+      midiCCOutUpperFilter(VB_EFFECT_1, 127);
+      midiCCOutUpperFilter(VB_EFFECT_2, 127);
       midiCCOut72(CCeffectNumSW, 7);
       midiCCOut(CCeffectNumSW, 7);
     }
@@ -3942,13 +4142,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "1");
       }
-      //srp.writePin(EFFECT_0_LOWER, LOW);
-      //srp.writePin(EFFECT_1_LOWER, LOW);
-      //srp.writePin(EFFECT_2_LOWER, LOW);
+      midiCCOutLowerFilter(VB_EFFECT_0, 0);
+      midiCCOutLowerFilter(VB_EFFECT_1, 0);
+      midiCCOutLowerFilter(VB_EFFECT_2, 0);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, LOW);
-        //srp.writePin(EFFECT_1_UPPER, LOW);
-        //srp.writePin(EFFECT_2_UPPER, LOW);
+        midiCCOutUpperFilter(VB_EFFECT_0, 0);
+        midiCCOutUpperFilter(VB_EFFECT_1, 0);
+        midiCCOutUpperFilter(VB_EFFECT_2, 0);
       }
       midiCCOut72(CCeffectNumSW, 0);
       midiCCOut(CCeffectNumSW, 0);
@@ -3957,13 +4157,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "2");
       }
-      //srp.writePin(EFFECT_0_LOWER, HIGH);
-      //srp.writePin(EFFECT_1_LOWER, LOW);
-      //srp.writePin(EFFECT_2_LOWER, LOW);
+      midiCCOutLowerFilter(VB_EFFECT_0, 127);
+      midiCCOutLowerFilter(VB_EFFECT_1, 0);
+      midiCCOutLowerFilter(VB_EFFECT_2, 0);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, HIGH);
-        //srp.writePin(EFFECT_1_UPPER, LOW);
-        //srp.writePin(EFFECT_2_UPPER, LOW);
+        midiCCOutUpperFilter(VB_EFFECT_0, 127);
+        midiCCOutUpperFilter(VB_EFFECT_1, 0);
+        midiCCOutUpperFilter(VB_EFFECT_2, 0);
       }
       midiCCOut72(CCeffectNumSW, 1);
       midiCCOut(CCeffectNumSW, 1);
@@ -3972,13 +4172,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "3");
       }
-      //srp.writePin(EFFECT_0_LOWER, LOW);
-      //srp.writePin(EFFECT_1_LOWER, HIGH);
-      //srp.writePin(EFFECT_2_LOWER, LOW);
+      midiCCOutLowerFilter(VB_EFFECT_0, 0);
+      midiCCOutLowerFilter(VB_EFFECT_1, 127);
+      midiCCOutLowerFilter(VB_EFFECT_2, 0);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, LOW);
-        //srp.writePin(EFFECT_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_2_UPPER, LOW);
+        midiCCOutUpperFilter(VB_EFFECT_0, 0);
+        midiCCOutUpperFilter(VB_EFFECT_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_2, 0);
       }
       midiCCOut72(CCeffectNumSW, 2);
       midiCCOut(CCeffectNumSW, 2);
@@ -3987,13 +4187,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "4");
       }
-      //srp.writePin(EFFECT_0_LOWER, HIGH);
-      //srp.writePin(EFFECT_1_LOWER, HIGH);
-      //srp.writePin(EFFECT_2_LOWER, LOW);
+      midiCCOutLowerFilter(VB_EFFECT_0, 127);
+      midiCCOutLowerFilter(VB_EFFECT_1, 127);
+      midiCCOutLowerFilter(VB_EFFECT_2, 0);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, HIGH);
-        //srp.writePin(EFFECT_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_2_UPPER, LOW);
+        midiCCOutUpperFilter(VB_EFFECT_0, 127);
+        midiCCOutUpperFilter(VB_EFFECT_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_2, 0);
       }
       midiCCOut72(CCeffectNumSW, 3);
       midiCCOut(CCeffectNumSW, 3);
@@ -4002,13 +4202,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "5");
       }
-      //srp.writePin(EFFECT_0_LOWER, LOW);
-      //srp.writePin(EFFECT_1_LOWER, LOW);
-      //srp.writePin(EFFECT_2_LOWER, HIGH);
+      midiCCOutLowerFilter(VB_EFFECT_0, 0);
+      midiCCOutLowerFilter(VB_EFFECT_1, 0);
+      midiCCOutLowerFilter(VB_EFFECT_2, 127);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, LOW);
-        //srp.writePin(EFFECT_1_UPPER, LOW);
-        //srp.writePin(EFFECT_2_UPPER, HIGH);
+        midiCCOutUpperFilter(VB_EFFECT_0, 0);
+        midiCCOutUpperFilter(VB_EFFECT_1, 0);
+        midiCCOutUpperFilter(VB_EFFECT_2, 127);
       }
       midiCCOut72(CCeffectNumSW, 4);
       midiCCOut(CCeffectNumSW, 4);
@@ -4017,13 +4217,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "6");
       }
-      //srp.writePin(EFFECT_0_LOWER, HIGH);
-      //srp.writePin(EFFECT_1_LOWER, LOW);
-      //srp.writePin(EFFECT_2_LOWER, HIGH);
+      midiCCOutLowerFilter(VB_EFFECT_0, 127);
+      midiCCOutLowerFilter(VB_EFFECT_1, 0);
+      midiCCOutLowerFilter(VB_EFFECT_2, 127);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, HIGH);
-        //srp.writePin(EFFECT_1_UPPER, LOW);
-        //srp.writePin(EFFECT_2_UPPER, HIGH);
+        midiCCOutUpperFilter(VB_EFFECT_0, 127);
+        midiCCOutUpperFilter(VB_EFFECT_1, 0);
+        midiCCOutUpperFilter(VB_EFFECT_2, 127);
       }
       midiCCOut72(CCeffectNumSW, 5);
       midiCCOut(CCeffectNumSW, 5);
@@ -4032,13 +4232,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "7");
       }
-      //srp.writePin(EFFECT_0_LOWER, LOW);
-      //srp.writePin(EFFECT_1_LOWER, HIGH);
-      //srp.writePin(EFFECT_2_LOWER, HIGH);
+      midiCCOutLowerFilter(VB_EFFECT_0, 0);
+      midiCCOutLowerFilter(VB_EFFECT_1, 127);
+      midiCCOutLowerFilter(VB_EFFECT_2, 127);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, LOW);
-        //srp.writePin(EFFECT_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_2_UPPER, HIGH);
+        midiCCOutUpperFilter(VB_EFFECT_0, 0);
+        midiCCOutUpperFilter(VB_EFFECT_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_2, 127);
       }
       midiCCOut72(CCeffectNumSW, 6);
       midiCCOut(CCeffectNumSW, 6);
@@ -4047,13 +4247,13 @@ void updateeffectNumSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Effect", "8");
       }
-      //srp.writePin(EFFECT_0_LOWER, HIGH);
-      //srp.writePin(EFFECT_1_LOWER, HIGH);
-      //srp.writePin(EFFECT_2_LOWER, HIGH);
+      midiCCOutLowerFilter(VB_EFFECT_0, 127);
+      midiCCOutLowerFilter(VB_EFFECT_1, 127);
+      midiCCOutLowerFilter(VB_EFFECT_2, 127);
       if (wholemode) {
-        //srp.writePin(EFFECT_0_UPPER, HIGH);
-        //srp.writePin(EFFECT_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_2_UPPER, HIGH);
+        midiCCOutUpperFilter(VB_EFFECT_0, 127);
+        midiCCOutUpperFilter(VB_EFFECT_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_2, 127);
       }
       midiCCOut72(CCeffectNumSW, 7);
       midiCCOut(CCeffectNumSW, 7);
@@ -4069,89 +4269,95 @@ void updateeffectBankSW(boolean announce) {
   }
 
   if (upperSW) {
-    // Step 1: Enter external mode
-    //srp.writePin(EFFECT_INTERNAL_UPPER, HIGH);
 
     // Step 2: Reset all CS lines
-    //srp.writePin(EFFECT_BANK_1_UPPER, HIGH);
-    //srp.writePin(EFFECT_BANK_2_UPPER, HIGH);
-    //srp.writePin(EFFECT_BANK_3_UPPER, HIGH);
-    //srp.update();
+    midiCCOutUpperFilter(VB_EFFECT_BANK_1, 0);
+    midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+    midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
 
     if (bank == 0) {
       // Internal ROM selected
-      //srp.writePin(EFFECT_INTERNAL_UPPER, LOW);
-      //srp.update();
+      midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 0);
+
     } else {
       // Select only the chosen EEPROM
-      if (bank == 1) {//srp.writePin(EFFECT_BANK_1_UPPER, LOW);
-      }
-      else if (bank == 2) {//srp.writePin(EFFECT_BANK_2_UPPER, LOW);
-      }
-      else if (bank == 3) {//srp.writePin(EFFECT_BANK_3_UPPER, LOW);
+      if (bank == 1) {
+        midiCCOutUpperFilter(VB_EFFECT_BANK_1, 0);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
+      } else if (bank == 2) {
+        midiCCOutUpperFilter(VB_EFFECT_BANK_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_2, 0);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
+      } else if (bank == 3) {
+        midiCCOutUpperFilter(VB_EFFECT_BANK_1, 127);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+        midiCCOutUpperFilter(VB_EFFECT_BANK_3, 0);
       }
 
-      //srp.update();  // or srp.latch(), or whatever your library uses
-      //srp.writePin(EFFECT_INTERNAL_UPPER, LOW);
-      //srp.update();
-      //srp.writePin(EFFECT_INTERNAL_UPPER, HIGH);
-      //srp.update();
+      midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 0);
+      delay(10);
+      midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 127);
     }
 
   } else {
-    // Step 1: Enter external mode
-    //srp.writePin(EFFECT_INTERNAL_LOWER, HIGH);
 
     // Step 2: Reset all CS lines
-    //srp.writePin(EFFECT_BANK_1_LOWER, HIGH);
-    //srp.writePin(EFFECT_BANK_2_LOWER, HIGH);
-    //srp.writePin(EFFECT_BANK_3_LOWER, HIGH);
-    //srp.update();
+    midiCCOutLowerFilter(VB_EFFECT_BANK_1, 0);
+    midiCCOutLowerFilter(VB_EFFECT_BANK_2, 127);
+    midiCCOutLowerFilter(VB_EFFECT_BANK_3, 127);
+
+    if (wholemode) {
+      midiCCOutUpperFilter(VB_EFFECT_BANK_1, 0);
+      midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+      midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
+    }
 
     if (bank == 0) {
-      //srp.writePin(EFFECT_INTERNAL_LOWER, LOW);
-      //srp.update();
+      midiCCOutLowerFilter(VB_EFFECT_INTERNAL, 0);
       if (wholemode) {
-        //srp.writePin(EFFECT_INTERNAL_UPPER, LOW);
-        //srp.writePin(EFFECT_BANK_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_BANK_2_UPPER, HIGH);
-        //srp.writePin(EFFECT_BANK_3_UPPER, HIGH);
-        //srp.update();
+        midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 0);
       }
+
 
     } else {
-      if (bank == 1) {//srp.writePin(EFFECT_BANK_1_LOWER, LOW);
+      if (bank == 1) {
+        midiCCOutLowerFilter(VB_EFFECT_BANK_1, 0);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_2, 127);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_3, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_EFFECT_BANK_1, 0);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
+        }
+      } else if (bank == 2) {
+        midiCCOutLowerFilter(VB_EFFECT_BANK_1, 127);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_2, 0);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_3, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_EFFECT_BANK_1, 127);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_2, 0);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_3, 127);
+        }
+      } else if (bank == 3) {
+        midiCCOutLowerFilter(VB_EFFECT_BANK_1, 127);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_2, 127);
+        midiCCOutLowerFilter(VB_EFFECT_BANK_3, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_EFFECT_BANK_1, 127);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_2, 127);
+          midiCCOutUpperFilter(VB_EFFECT_BANK_3, 0);
+        }
       }
-      else if (bank == 2) {//srp.writePin(EFFECT_BANK_2_LOWER, LOW);
-      }
-      else if (bank == 3) {//srp.writePin(EFFECT_BANK_3_LOWER, LOW);
-      }
-
-      //srp.update();
-      //srp.writePin(EFFECT_INTERNAL_LOWER, LOW);
-      //srp.update();
-      //srp.writePin(EFFECT_INTERNAL_LOWER, HIGH);
-      //srp.update();
-
+      delay(10);
+      midiCCOutLowerFilter(VB_EFFECT_INTERNAL, 0);
+      delay(10);
+      midiCCOutLowerFilter(VB_EFFECT_INTERNAL, 127);
       if (wholemode) {
-        //srp.writePin(EFFECT_INTERNAL_UPPER, HIGH);
-        //srp.writePin(EFFECT_BANK_1_UPPER, HIGH);
-        //srp.writePin(EFFECT_BANK_2_UPPER, HIGH);
-        //srp.writePin(EFFECT_BANK_3_UPPER, HIGH);
-        //srp.update();
-
-        if (bank == 1) {//srp.writePin(EFFECT_BANK_1_UPPER, LOW);
-        }
-        else if (bank == 2) {//srp.writePin(EFFECT_BANK_2_UPPER, LOW);
-        }
-        else if (bank == 3) {//srp.writePin(EFFECT_BANK_3_UPPER, LOW);
-        }
-
-        //srp.update();
-        //srp.writePin(EFFECT_INTERNAL_UPPER, LOW);
-        //srp.update();
-        //srp.writePin(EFFECT_INTERNAL_UPPER, HIGH);
-        //srp.update();
+        delay(10);
+        midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 0);
+        delay(10);
+        midiCCOutUpperFilter(VB_EFFECT_INTERNAL, 127);
       }
     }
   }
@@ -4167,45 +4373,38 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x0.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 0);
       midiCCOut72(CClfoMult, 0);
       midiCCOut(CClfoMult, 0);
+
     } else if (upperData[P_lfoMultiplier] == 1) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.0");
       }
-      //srp.writePin(LFO_MULTI_BIT0_UPPER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 38);
       midiCCOut72(CClfoMult, 1);
       midiCCOut(CClfoMult, 1);
+
     } else if (upperData[P_lfoMultiplier] == 2) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_UPPER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 64);
       midiCCOut72(CClfoMult, 2);
       midiCCOut(CClfoMult, 2);
+
     } else if (upperData[P_lfoMultiplier] == 3) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.0");
       }
-      //srp.writePin(LFO_MULTI_BIT0_UPPER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT1_UPPER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 89);
       midiCCOut72(CClfoMult, 3);
       midiCCOut(CClfoMult, 3);
     } else if (upperData[P_lfoMultiplier] == 4) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_UPPER, HIGH);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 114);
       midiCCOut72(CClfoMult, 4);
       midiCCOut(CClfoMult, 4);
     }
@@ -4214,13 +4413,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x0.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_LOWER, LOW);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 0);
       if (wholemode) {
-        //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 0);
       }
       midiCCOut72(CClfoMult, 0);
       midiCCOut(CClfoMult, 0);
@@ -4228,13 +4423,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.0");
       }
-      //srp.writePin(LFO_MULTI_BIT0_LOWER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT1_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_LOWER, LOW);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 38);
       if (wholemode) {
-        //srp.writePin(LFO_MULTI_BIT0_UPPER, HIGH);
-        //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 38);
       }
       midiCCOut72(CClfoMult, 1);
       midiCCOut(CClfoMult, 1);
@@ -4242,13 +4433,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_LOWER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT2_LOWER, LOW);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 64);
       if (wholemode) {
-        //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT1_UPPER, HIGH);
-        //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 64);
       }
       midiCCOut72(CClfoMult, 2);
       midiCCOut(CClfoMult, 2);
@@ -4256,13 +4443,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.0");
       }
-      //srp.writePin(LFO_MULTI_BIT0_LOWER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT1_LOWER, HIGH);
-      //srp.writePin(LFO_MULTI_BIT2_LOWER, LOW);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 89);
       if (wholemode) {
-        //srp.writePin(LFO_MULTI_BIT0_UPPER, HIGH);
-        //srp.writePin(LFO_MULTI_BIT1_UPPER, HIGH);
-        //srp.writePin(LFO_MULTI_BIT2_UPPER, LOW);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 89);
       }
       midiCCOut72(CClfoMult, 3);
       midiCCOut(CClfoMult, 3);
@@ -4270,13 +4453,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.5");
       }
-      //srp.writePin(LFO_MULTI_BIT0_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT1_LOWER, LOW);
-      //srp.writePin(LFO_MULTI_BIT2_LOWER, HIGH);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 114);
       if (wholemode) {
-        //srp.writePin(LFO_MULTI_BIT0_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT1_UPPER, LOW);
-        //srp.writePin(LFO_MULTI_BIT2_UPPER, HIGH);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 114);
       }
       midiCCOut72(CClfoMult, 4);
       midiCCOut(CClfoMult, 4);
@@ -4290,14 +4469,16 @@ void updateglideSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Glide", "Off");
       }
-      midiCCOut62(CCglideSW, 0);
+      midiCCOutUpperVCO(CC_PORTAMENTO_SW, 0);
+      midiCCOut(CCglideSW, 0);
       midiCCOut72(CCglideSW, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Glide", "On");
       }
-      midiCCOut62(CCglideTime, upperData[P_glideTime]);
-      midiCCOut62(CCglideSW, 127);
+      midiCCOutUpperVCO(CC_PORTAMENTO_TIME, upperData[P_glideTime]);
+      midiCCOutUpperVCO(CC_PORTAMENTO_SW, 127);
+      midiCCOut(CCglideSW, 127);
       midiCCOut71(CCglideTime, upperData[P_glideTime]);
       midiCCOut72(CCglideSW, 1);
     }
@@ -4306,24 +4487,25 @@ void updateglideSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Glide", "Off");
       }
-      midiCCOut61(CCglideSW, 0);
-      midiCCOut72(CCglideSW, 0);
+      midiCCOutLowerVCO(CC_PORTAMENTO_SW, 0);
       if (wholemode) {
-        midiCCOut62(CCglideSW, 0);
+        midiCCOutUpperVCO(CC_PORTAMENTO_SW, 0);
       }
+      midiCCOut(CCglideSW, 0);
+      midiCCOut72(CCglideSW, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Glide", "On");
       }
-      midiCCOut61(CCglideTime, lowerData[P_glideTime]);
-      midiCCOut61(CCglideSW, 127);
-
+      midiCCOutLowerVCO(CC_PORTAMENTO_TIME, lowerData[P_glideTime]);
+      midiCCOutLowerVCO(CC_PORTAMENTO_SW, 127);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_PORTAMENTO_TIME, upperData[P_glideTime]);
+        midiCCOutUpperVCO(CC_PORTAMENTO_SW, 127);
+      }
+      midiCCOut(CCglideSW, 0);
       midiCCOut71(CCglideTime, lowerData[P_glideTime]);
       midiCCOut72(CCglideSW, 1);
-      if (wholemode) {
-        midiCCOut62(CCglideTime, upperData[P_glideTime]);
-        midiCCOut62(CCglideSW, 127);
-      }
     }
   }
 }
@@ -4332,44 +4514,40 @@ void updatefilterPoleSwitch(boolean announce) {
   if (upperSW) {
     if (upperData[P_filterPoleSW] == 1) {
       if (announce) {
-        //showCurrentParameterPage("VCF Pole", "On");
         updateFilterType(1);
       }
+      midiCCOutUpperFilter(VB_FILTER_POLE, 127);
       midiCCOut(CCfilterPoleSW, 127);
       midiCCOut72(CCfilterPoleSW, 127);
-      //srp.writePin(FILTER_POLE_UPPER, HIGH);
     } else {
       if (announce) {
-        //showCurrentParameterPage("VCF Pole", "Off");
         updateFilterType(1);
       }
+      midiCCOutUpperFilter(VB_FILTER_POLE, 0);
       midiCCOut(CCfilterPoleSW, 0);
       midiCCOut72(CCfilterPoleSW, 0);
-      //srp.writePin(FILTER_POLE_UPPER, LOW);
     }
   } else {
     if (lowerData[P_filterPoleSW] == 1) {
       if (announce) {
-        //showCurrentParameterPage("VCF Pole", "On");
         updateFilterType(1);
+      }
+      midiCCOutLowerFilter(VB_FILTER_POLE, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_POLE, 127);
       }
       midiCCOut(CCfilterPoleSW, 127);
       midiCCOut72(CCfilterPoleSW, 127);
-      //srp.writePin(FILTER_POLE_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(FILTER_POLE_UPPER, HIGH);
-      }
     } else {
       if (announce) {
-        //showCurrentParameterPage("VCF Pole", "Off");
         updateFilterType(1);
+      }
+      midiCCOutLowerFilter(VB_FILTER_POLE, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_POLE, 0);
       }
       midiCCOut(CCfilterPoleSW, 0);
       midiCCOut72(CCfilterPoleSW, 0);
-      //srp.writePin(FILTER_POLE_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(FILTER_POLE_UPPER, LOW);
-      }
     }
   }
 }
@@ -4381,30 +4559,30 @@ void updatefilterLoop(boolean announce) {
         if (announce) {
           showCurrentParameterPage("VCF Key Loop", "Off");
         }
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 0);
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 0);
         midiCCOut72(CCFilterLoop, 0);
         midiCCOut(CCFilterLoop, 0);
-        //srp.writePin(FILTER_MODE_BIT0_UPPER, LOW);
-        //srp.writePin(FILTER_MODE_BIT1_UPPER, LOW);
         break;
 
       case 1:
         if (announce) {
           showCurrentParameterPage("VCF LFO Loop", "Gated");
         }
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 127);
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 0);
         midiCCOut72(CCFilterLoop, 1);
         midiCCOut(CCFilterLoop, 63);
-        //srp.writePin(FILTER_MODE_BIT0_UPPER, HIGH);
-        //srp.writePin(FILTER_MODE_BIT1_UPPER, LOW);
         break;
 
       case 2:
         if (announce) {
           showCurrentParameterPage("VCF Looping", "LFO");
         }
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 127);
+        midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 127);
         midiCCOut72(CCFilterLoop, 2);
         midiCCOut(CCFilterLoop, 127);
-        //srp.writePin(FILTER_MODE_BIT0_UPPER, HIGH);
-        //srp.writePin(FILTER_MODE_BIT1_UPPER, HIGH);
         break;
     }
   } else {
@@ -4413,42 +4591,42 @@ void updatefilterLoop(boolean announce) {
         if (announce) {
           showCurrentParameterPage("VCF Key Loop", "Off");
         }
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT0, 0);
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT1, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 0);
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 0);
+        }
         midiCCOut72(CCFilterLoop, 0);
         midiCCOut(CCFilterLoop, 0);
-        //srp.writePin(FILTER_MODE_BIT0_LOWER, LOW);
-        //srp.writePin(FILTER_MODE_BIT1_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTER_MODE_BIT0_UPPER, LOW);
-          //srp.writePin(FILTER_MODE_BIT1_UPPER, LOW);
-        }
         break;
 
       case 1:
         if (announce) {
           showCurrentParameterPage("VCF LFO Loop", "Gated");
         }
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT0, 127);
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT1, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 127);
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 0);
+        }
         midiCCOut72(CCFilterLoop, 1);
         midiCCOut(CCFilterLoop, 63);
-        //srp.writePin(FILTER_MODE_BIT0_LOWER, HIGH);
-        //srp.writePin(FILTER_MODE_BIT1_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(FILTER_MODE_BIT0_UPPER, HIGH);
-          //srp.writePin(FILTER_MODE_BIT1_UPPER, LOW);
-        }
         break;
 
       case 2:
         if (announce) {
           showCurrentParameterPage("VCF Looping", "LFO");
         }
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT0, 127);
+        midiCCOutLowerFilter(VB_FILTER_MODE_BIT1, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT0, 127);
+          midiCCOutUpperFilter(VB_FILTER_MODE_BIT1, 127);
+        }
         midiCCOut72(CCFilterLoop, 2);
         midiCCOut(CCFilterLoop, 127);
-        //srp.writePin(FILTER_MODE_BIT0_LOWER, HIGH);
-        //srp.writePin(FILTER_MODE_BIT1_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(FILTER_MODE_BIT0_UPPER, HIGH);
-          //srp.writePin(FILTER_MODE_BIT1_UPPER, HIGH);
-        }
         break;
     }
   }
@@ -4460,39 +4638,38 @@ void updatefilterEGinv(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Positive");
       }
+      midiCCOutUpperFilter(VB_FILTER_EG_INVERT, 0);
       midiCCOut(CCfilterEGinv, 0);
       midiCCOut72(CCfilterEGinv, 0);
-      //srp.writePin(FILTER_EG_INV_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Negative");
       }
+      midiCCOutUpperFilter(VB_FILTER_EG_INVERT, 127);
       midiCCOut(CCfilterEGinv, 127);
       midiCCOut72(CCfilterEGinv, 127);
-      // sr.set(FILTERINV_LED, HIGH);  // LED on
-      //srp.writePin(FILTER_EG_INV_UPPER, HIGH);
     }
   } else {
     if (lowerData[P_filterEGinv] == 0) {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Positive");
       }
+      midiCCOutLowerFilter(VB_FILTER_EG_INVERT, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_EG_INVERT, 0);
+      }
       midiCCOut(CCfilterEGinv, 0);
       midiCCOut72(CCfilterEGinv, 0);
-      //srp.writePin(FILTER_EG_INV_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(FILTER_EG_INV_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Negative");
       }
+      midiCCOutLowerFilter(VB_FILTER_EG_INVERT, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_EG_INVERT, 127);
+      }
       midiCCOut(CCfilterEGinv, 127);
       midiCCOut72(CCfilterEGinv, 127);
-      //srp.writePin(FILTER_EG_INV_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(FILTER_EG_INV_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4503,38 +4680,38 @@ void updatepmDestDCO1(boolean announce) {
       if (announce) {
         showCurrentParameterPage("PolyMod DCO1", "Off");
       }
+      midiCCOutUpperFilter(VB_POLYMOD_DEST_DCO1, 0);
       midiCCOut(CCpmDestDCO1SW, 0);
       midiCCOut72(CCpmDestDCO1SW, 0);
-      //srp.writePin(POLYMOD_DEST_DCO1_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("PolyMod DCO1", "On");
       }
+      midiCCOutUpperFilter(VB_POLYMOD_DEST_DCO1, 127);
       midiCCOut(CCpmDestDCO1SW, 127);
       midiCCOut72(CCpmDestDCO1SW, 1);
-      //srp.writePin(POLYMOD_DEST_DCO1_UPPER, HIGH);
     }
   } else {
     if (!lowerData[P_pmDestDCO1]) {
       if (announce) {
         showCurrentParameterPage("PolyMod DCO1", "Off");
       }
+      midiCCOutLowerFilter(VB_POLYMOD_DEST_DCO1, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_POLYMOD_DEST_DCO1, 0);
+      }
       midiCCOut(CCpmDestDCO1SW, 0);
       midiCCOut72(CCpmDestDCO1SW, 0);
-      //srp.writePin(POLYMOD_DEST_DCO1_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(POLYMOD_DEST_DCO1_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("PolyMod DCO1", "On");
       }
+      midiCCOutLowerFilter(VB_POLYMOD_DEST_DCO1, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_POLYMOD_DEST_DCO1, 127);
+      }
       midiCCOut(CCpmDestDCO1SW, 127);
       midiCCOut72(CCpmDestDCO1SW, 1);
-      //srp.writePin(POLYMOD_DEST_DCO1_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(POLYMOD_DEST_DCO1_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4545,38 +4722,38 @@ void updatepmDestFilter(boolean announce) {
       if (announce) {
         showCurrentParameterPage("PolyMod Filter", "Off");
       }
+      midiCCOutUpperFilter(VB_POLYMOD_DEST_FILTER, 0);
       midiCCOut(CCpmDestFilterSW, 0);
       midiCCOut72(CCpmDestFilterSW, 0);
-      //srp.writePin(POLYMOD_DEST_FILTER_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("PolyMod Filter", "On");
       }
+      midiCCOutUpperFilter(VB_POLYMOD_DEST_FILTER, 127);
       midiCCOut(CCpmDestFilterSW, 127);
       midiCCOut72(CCpmDestFilterSW, 1);
-      //srp.writePin(POLYMOD_DEST_FILTER_UPPER, HIGH);
     }
   } else {
     if (!lowerData[P_pmDestFilter]) {
       if (announce) {
         showCurrentParameterPage("PolyMod Filter", "Off");
       }
+      midiCCOutLowerFilter(VB_POLYMOD_DEST_FILTER, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_POLYMOD_DEST_FILTER, 0);
+      }
       midiCCOut(CCpmDestFilterSW, 0);
       midiCCOut72(CCpmDestFilterSW, 0);
-      //srp.writePin(POLYMOD_DEST_FILTER_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(POLYMOD_DEST_FILTER_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("PolyMod Filter", "On");
       }
+      midiCCOutLowerFilter(VB_POLYMOD_DEST_FILTER, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_POLYMOD_DEST_FILTER, 127);
+      }
       midiCCOut(CCpmDestFilterSW, 127);
       midiCCOut72(CCpmDestFilterSW, 1);
-      //srp.writePin(POLYMOD_DEST_FILTER_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(POLYMOD_DEST_FILTER_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4587,14 +4764,14 @@ void updatekeyTrackSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Keytrack", "Off");
       }
-      midiCCOut62(WSkeytrackSW, 0);
+      midiCCOutUpperVCO(WSkeytrackSW, 0);
       midiCCOut(CCkeyTrackSW, 0);
       midiCCOut72(CCkeyTrackSW, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Keytrack", "On");
       }
-      midiCCOut62(WSkeytrackSW, 127);
+      midiCCOutUpperVCO(WSkeytrackSW, 127);
       midiCCOut(CCkeyTrackSW, 127);
       midiCCOut72(CCkeyTrackSW, 1);
     }
@@ -4603,21 +4780,21 @@ void updatekeyTrackSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Keytrack", "Off");
       }
-      midiCCOut61(WSkeytrackSW, 0);
+      midiCCOutLowerVCO(WSkeytrackSW, 0);
       midiCCOut(CCkeyTrackSW, 0);
       midiCCOut72(CCkeyTrackSW, 0);
       if (wholemode) {
-        midiCCOut62(WSkeytrackSW, 0);
+        midiCCOutUpperVCO(WSkeytrackSW, 0);
       }
     } else {
       if (announce) {
         showCurrentParameterPage("Keytrack", "On");
       }
-      midiCCOut61(WSkeytrackSW, 127);
+      midiCCOutLowerVCO(WSkeytrackSW, 127);
       midiCCOut(CCkeyTrackSW, 127);
       midiCCOut72(CCkeyTrackSW, 1);
       if (wholemode) {
-        midiCCOut62(WSkeytrackSW, 127);
+        midiCCOutUpperVCO(WSkeytrackSW, 127);
       }
     }
   }
@@ -4629,44 +4806,38 @@ void updatesyncSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Sync", "Off");
       }
-      midiCCOut62(WSsyncW, 0);
+      midiCCOutUpperVCO(CC_SYNC, 0);
       midiCCOut(CCsyncSW, 0);
       midiCCOut72(CCsyncSW, 0);
-      //srp.writePin(SYNC_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("Sync", "On");
       }
-      midiCCOut62(WSsyncW, 127);
+      midiCCOutUpperVCO(CC_SYNC, 127);
       midiCCOut(CCsyncSW, 127);
       midiCCOut72(CCsyncSW, 1);
-      //srp.writePin(SYNC_UPPER, HIGH);
     }
   } else {
     if (!lowerData[P_sync]) {
       if (announce) {
         showCurrentParameterPage("Sync", "Off");
       }
-      midiCCOut61(WSsyncW, 0);
+      midiCCOutLowerVCO(CC_SYNC, 0);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_SYNC, 0);
+      }
       midiCCOut(CCsyncSW, 0);
       midiCCOut72(CCsyncSW, 0);
-      //srp.writePin(SYNC_LOWER, LOW);
-      if (wholemode) {
-        midiCCOut62(WSsyncW, 0);
-        //srp.writePin(SYNC_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("Sync", "On");
       }
-      midiCCOut61(WSsyncW, 127);
+      midiCCOutLowerVCO(CC_SYNC, 127);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_SYNC, 127);
+      }
       midiCCOut(CCsyncSW, 127);
       midiCCOut72(CCsyncSW, 1);
-      //srp.writePin(SYNC_LOWER, HIGH);
-      if (wholemode) {
-        midiCCOut62(WSsyncW, 127);
-        //srp.writePin(SYNC_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4791,38 +4962,38 @@ void updatefilterenvLogLin(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Linear");
       }
+      midiCCOutUpperFilter(VB_FILTER_LIN_LOG, 0);
       midiCCOut(CCfilterenvLinLogSW, 0);
       midiCCOut72(CCfilterenvLinLogSW, 0);
-      //srp.writePin(FILTER_LIN_LOG_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Log");
       }
+      midiCCOutUpperFilter(VB_FILTER_LIN_LOG, 127);
       midiCCOut(CCfilterenvLinLogSW, 127);
       midiCCOut72(CCfilterenvLinLogSW, 1);
-      //srp.writePin(FILTER_LIN_LOG_UPPER, HIGH);
     }
   } else {
     if (!lowerData[P_filterLogLin]) {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Linear");
       }
+      midiCCOutLowerFilter(VB_FILTER_LIN_LOG, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_LIN_LOG, 0);
+      }
       midiCCOut(CCfilterenvLinLogSW, 0);
       midiCCOut72(CCfilterenvLinLogSW, 0);
-      //srp.writePin(FILTER_LIN_LOG_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(FILTER_LIN_LOG_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("Filter Env", "Log");
       }
+      midiCCOutLowerFilter(VB_FILTER_LIN_LOG, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_LIN_LOG, 127);
+      }
       midiCCOut(CCfilterenvLinLogSW, 127);
       midiCCOut72(CCfilterenvLinLogSW, 1);
-      //srp.writePin(FILTER_LIN_LOG_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(FILTER_LIN_LOG_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4833,38 +5004,38 @@ void updateampenvLogLin(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Amp Env", "Linear");
       }
+      midiCCOutUpperFilter(VB_AMP_LIN_LOG, 0);
       midiCCOut(CCampenvLinLogSW, 0);
       midiCCOut72(CCampenvLinLogSW, 0);
-      //srp.writePin(AMP_LIN_LOG_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("Amp Env", "Log");
       }
+      midiCCOutUpperFilter(VB_AMP_LIN_LOG, 127);
       midiCCOut(CCampenvLinLogSW, 127);
       midiCCOut72(CCampenvLinLogSW, 1);
-      //srp.writePin(AMP_LIN_LOG_UPPER, HIGH);
     }
   } else {
     if (!lowerData[P_ampLogLin]) {
       if (announce) {
         showCurrentParameterPage("Amp Env", "Linear");
       }
+      midiCCOutLowerFilter(VB_AMP_LIN_LOG, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_AMP_LIN_LOG, 0);
+      }
       midiCCOut(CCampenvLinLogSW, 0);
       midiCCOut72(CCampenvLinLogSW, 0);
-      //srp.writePin(AMP_LIN_LOG_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(AMP_LIN_LOG_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("Amp Env", "Log");
       }
+      midiCCOutLowerFilter(VB_AMP_LIN_LOG, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_AMP_LIN_LOG, 127);
+      }
       midiCCOut(CCampenvLinLogSW, 127);
       midiCCOut72(CCampenvLinLogSW, 1);
-      //srp.writePin(AMP_LIN_LOG_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(AMP_LIN_LOG_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4875,38 +5046,38 @@ void updatefilterVel(boolean announce) {
       if (announce) {
         showCurrentParameterPage("VCF Velocity", "Off");
       }
+      midiCCOutUpperFilter(VB_FILTER_VELOCITY, 0);
       midiCCOut72(CCfilterVel, 0);
       midiCCOut(CCfilterVel, 0);
-      //srp.writePin(FILTER_VELOCITY_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("VCF Velocity", "On");
       }
+      midiCCOutUpperFilter(VB_FILTER_VELOCITY, 127);
       midiCCOut72(CCfilterVel, 1);
       midiCCOut(CCfilterVel, 127);
-      //srp.writePin(FILTER_VELOCITY_UPPER, HIGH);
     }
   } else {
     if (lowerData[P_filterVel] == 0) {
       if (announce) {
         showCurrentParameterPage("VCF Velocity", "Off");
       }
+      midiCCOutLowerFilter(VB_FILTER_VELOCITY, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_VELOCITY, 0);
+      }
       midiCCOut72(CCfilterVel, 0);
       midiCCOut(CCfilterVel, 0);
-      //srp.writePin(FILTER_VELOCITY_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(FILTER_VELOCITY_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("VCF Velocity", "On");
       }
+      midiCCOutLowerFilter(VB_FILTER_VELOCITY, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_FILTER_VELOCITY, 127);
+      }
       midiCCOut72(CCfilterVel, 1);
       midiCCOut(CCfilterVel, 127);
-      //srp.writePin(FILTER_VELOCITY_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(FILTER_VELOCITY_UPPER, HIGH);
-      }
     }
   }
 }
@@ -4980,30 +5151,30 @@ void updatevcaLoop(boolean announce) {
         if (announce) {
           showCurrentParameterPage("VCA Loop", "Off");
         }
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 0);
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 0);
         midiCCOut72(CCAmpLoop, 0);
         midiCCOut(CCAmpLoop, 0);
-        //srp.writePin(AMP_MODE_BIT0_UPPER, LOW);
-        //srp.writePin(AMP_MODE_BIT1_UPPER, LOW);
         break;
 
       case 1:
         if (announce) {
           showCurrentParameterPage("VCA Loop", "Gated");
         }
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 127);
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 0);
         midiCCOut72(CCAmpLoop, 1);
         midiCCOut(CCAmpLoop, 63);
-        //srp.writePin(AMP_MODE_BIT0_UPPER, HIGH);
-        //srp.writePin(AMP_MODE_BIT1_UPPER, LOW);
         break;
 
       case 2:
         if (announce) {
           showCurrentParameterPage("VCA Loop", "LFO");
         }
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 127);
+        midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 127);
         midiCCOut72(CCAmpLoop, 2);
         midiCCOut(CCAmpLoop, 127);
-        //srp.writePin(AMP_MODE_BIT0_UPPER, HIGH);
-        //srp.writePin(AMP_MODE_BIT1_UPPER, HIGH);
         break;
     }
   } else {
@@ -5012,42 +5183,42 @@ void updatevcaLoop(boolean announce) {
         if (announce) {
           showCurrentParameterPage("VCA Loop", "Off");
         }
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT0, 0);
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT1, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 0);
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 0);
+        }
         midiCCOut72(CCAmpLoop, 0);
         midiCCOut(CCAmpLoop, 0);
-        //srp.writePin(AMP_MODE_BIT0_LOWER, LOW);
-        //srp.writePin(AMP_MODE_BIT1_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(AMP_MODE_BIT0_UPPER, LOW);
-          //srp.writePin(AMP_MODE_BIT1_UPPER, LOW);
-        }
         break;
 
       case 1:
         if (announce) {
           showCurrentParameterPage("VCA Loop", "Gated");
         }
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT0, 127);
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT1, 0);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 127);
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 0);
+        }
         midiCCOut72(CCAmpLoop, 1);
         midiCCOut(CCAmpLoop, 63);
-        //srp.writePin(AMP_MODE_BIT0_LOWER, HIGH);
-        //srp.writePin(AMP_MODE_BIT1_LOWER, LOW);
-        if (wholemode) {
-          //srp.writePin(AMP_MODE_BIT0_UPPER, HIGH);
-          //srp.writePin(AMP_MODE_BIT1_UPPER, LOW);
-        }
         break;
 
       case 2:
         if (announce) {
           showCurrentParameterPage("VCA Loop", "LFO");
         }
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT0, 127);
+        midiCCOutLowerFilter(VB_AMP_MODE_BIT1, 127);
+        if (wholemode) {
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT0, 127);
+          midiCCOutUpperFilter(VB_AMP_MODE_BIT1, 127);
+        }
         midiCCOut72(CCAmpLoop, 2);
         midiCCOut(CCAmpLoop, 127);
-        //srp.writePin(AMP_MODE_BIT0_LOWER, HIGH);
-        //srp.writePin(AMP_MODE_BIT1_LOWER, HIGH);
-        if (wholemode) {
-          //srp.writePin(AMP_MODE_BIT0_UPPER, HIGH);
-          //srp.writePin(AMP_MODE_BIT1_UPPER, HIGH);
-        }
         break;
     }
   }
@@ -5059,38 +5230,38 @@ void updatevcaVel(boolean announce) {
       if (announce) {
         showCurrentParameterPage("VCA Velocity", "Off");
       }
+      midiCCOutUpperFilter(VB_AMP_VELOCITY, 0);
       midiCCOut72(CCvcaVel, 0);
       midiCCOut(CCvcaVel, 0);
-      //srp.writePin(AMP_VELOCITY_UPPER, LOW);
     } else {
       if (announce) {
         showCurrentParameterPage("VCA Velocity", "On");
       }
+      midiCCOutUpperFilter(VB_AMP_VELOCITY, 127);
       midiCCOut72(CCvcaVel, 1);
       midiCCOut(CCvcaVel, 127);
-      //srp.writePin(AMP_VELOCITY_UPPER, HIGH);
     }
   } else {
     if (lowerData[P_vcaVel] == 0) {
       if (announce) {
         showCurrentParameterPage("VCA Velocity", "Off");
       }
+      midiCCOutLowerFilter(VB_AMP_VELOCITY, 0);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_AMP_VELOCITY, 0);
+      }
       midiCCOut72(CCvcaVel, 0);
       midiCCOut(CCvcaVel, 0);
-      //srp.writePin(AMP_VELOCITY_LOWER, LOW);
-      if (wholemode) {
-        //srp.writePin(AMP_VELOCITY_UPPER, LOW);
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("VCA Velocity", "On");
       }
+      midiCCOutLowerFilter(VB_AMP_VELOCITY, 127);
+      if (wholemode) {
+        midiCCOutUpperFilter(VB_AMP_VELOCITY, 127);
+      }
       midiCCOut72(CCvcaVel, 1);
       midiCCOut(CCvcaVel, 127);
-      //srp.writePin(AMP_VELOCITY_LOWER, HIGH);
-      if (wholemode) {
-        //srp.writePin(AMP_VELOCITY_UPPER, HIGH);
-      }
     }
   }
 }
@@ -5188,7 +5359,7 @@ void updateupperSW(boolean announce) {
       midiCCOut72(CCupperSW, 1);
       upperParamsToDisplay();
       setAllButtons();
-      //srp.writePin(UPPER_RELAY_1, HIGH);
+      digitalWrite(LFO_SELECT, HIGH);
     }
   }
 }
@@ -5199,7 +5370,7 @@ void updatelowerSW(boolean announce) {
     midiCCOut72(CClowerSW, 1);
     lowerParamsToDisplay();
     setAllButtons();
-    //srp.writePin(UPPER_RELAY_1, LOW);
+    digitalWrite(LFO_SELECT, LOW);
   }
 }
 
@@ -6091,11 +6262,11 @@ void myControlChange(byte channel, byte control, int value) {
 
     case CCmodwheel:
       if (upperSW) {
-        midiCCOut62(WSmodwheel, value / 8);  // divided by 8 because the convert bumps it up to 1023
+        midiCCOutUpperVCO(CC_MOD_WHEEL, value / 8);  // divided by 8 because the convert bumps it up to 1023
       } else {
-        midiCCOut61(WSmodwheel, value / 8);
+        midiCCOutLowerVCO(CC_MOD_WHEEL, value / 8);
         if (wholemode) {
-          midiCCOut62(WSmodwheel, value / 8);
+          midiCCOutUpperVCO(CC_MOD_WHEEL, value / 8);
         }
       }
       break;
@@ -6227,10 +6398,10 @@ void recallPatch(int patchNo) {
 }
 
 void setCurrentPatchData(String data[]) {
-  int tempData[75];  // Temporary array for converted integers
+  int tempData[76];  // Temporary array for converted integers
 
   // Convert data from String to int once
-  for (int i = 1; i <= 74; i++) {
+  for (int i = 1; i <= 75; i++) {
     tempData[i] = data[i].toInt();
   }
 
@@ -6254,7 +6425,7 @@ void setCurrentPatchData(String data[]) {
     if (wholemode) {
 
       // Update previous values and pick-up flags
-      for (int i = 1; i <= 74; i++) {
+      for (int i = 1; i <= 75; i++) {
         upperData[i] = lowerData[i];  // Store previous value
       }
 
@@ -6325,6 +6496,7 @@ void upperParamsToDisplay() {
   updatelfoMultiplier(0);
   updateeffectBankSW(0);
   updateeffectNumSW(0);
+  updatenoiseSource(0);
 }
 
 void lowerParamsToDisplay() {
@@ -6385,6 +6557,7 @@ void lowerParamsToDisplay() {
   updatelfoMultiplier(0);
   updateeffectBankSW(0);
   updateeffectNumSW(0);
+  updatenoiseSource(0);
 }
 
 void setAllButtons() {
@@ -6420,7 +6593,7 @@ String getCurrentPatchData() {
            + "," + String(upperData[P_AfterTouchDest]) + "," + String(upperData[P_filterLogLin]) + "," + String(upperData[P_ampLogLin]) + "," + String(upperData[P_osc2TriangleLevel])
            + "," + String(upperData[P_osc1SubLevel]) + "," + String(upperData[P_keyboardMode]) + "," + String(upperData[P_LFODelay]) + "," + String(upperData[P_effectNum]) + "," + String(upperData[P_effectBank])
            + "," + String(upperData[P_pmDestDCO1]) + "," + String(upperData[P_pmDestFilter]) + "," + String(upperData[P_lfoMultiplier]) + "," + String(upperData[P_NotePriority]) + "," + String(upperData[P_keytrackSW])
-           + "," + String(upperData[P_ATDepth]);
+           + "," + String(upperData[P_ATDepth]) + "," + String(upperData[P_noiseSource]);
   } else {
     return patchNameL + "," + String(lowerData[P_pwLFO]) + "," + String(lowerData[P_fmDepth]) + "," + String(lowerData[P_osc2PW]) + "," + String(lowerData[P_osc2PWM])
            + "," + String(lowerData[P_osc1PW]) + "," + String(lowerData[P_osc1PWM]) + "," + String(lowerData[P_osc1Range]) + "," + String(lowerData[P_osc2Range]) + "," + String(lowerData[P_osc2Interval])
@@ -6439,7 +6612,7 @@ String getCurrentPatchData() {
            + "," + String(lowerData[P_AfterTouchDest]) + "," + String(lowerData[P_filterLogLin]) + "," + String(lowerData[P_ampLogLin]) + "," + String(lowerData[P_osc2TriangleLevel])
            + "," + String(lowerData[P_osc1SubLevel]) + "," + String(lowerData[P_keyboardMode]) + "," + String(lowerData[P_LFODelay]) + "," + String(lowerData[P_effectNum]) + "," + String(lowerData[P_effectBank])
            + "," + String(lowerData[P_pmDestDCO1]) + "," + String(lowerData[P_pmDestFilter]) + "," + String(lowerData[P_lfoMultiplier]) + "," + String(lowerData[P_NotePriority]) + "," + String(lowerData[P_keytrackSW])
-           + "," + String(lowerData[P_ATDepth]);
+           + "," + String(lowerData[P_ATDepth]) + "," + String(lowerData[P_noiseSource]);
   }
 }
 
@@ -6455,12 +6628,20 @@ void midiCCOut72(byte cc, byte value) {
   MIDI7.sendControlChange(cc, value, 2);  //MIDI DIN to panel for switches
 }
 
-void midiCCOut61(byte cc, byte value) {
-  MIDI6.sendControlChange(cc, value, 1);  //MIDI DIN to synth board lower
+void midiCCOutLowerVCO(byte cc, byte value) {
+  MIDI6.sendControlChange(cc, value, 9);  //MIDI DIN to synth board lower
 }
 
-void midiCCOut62(byte cc, byte value) {
-  MIDI6.sendControlChange(cc, value, 2);  //MIDI DIN to synth board upper
+void midiCCOutLowerFilter(byte cc, byte value) {
+  MIDI6.sendControlChange(cc, value, 10);  //MIDI DIN to synth board upper
+}
+
+void midiCCOutUpperVCO(byte cc, byte value) {
+  MIDI8.sendControlChange(cc, value, 9);  //MIDI DIN to synth board lower
+}
+
+void midiCCOutUpperFilter(byte cc, byte value) {
+  MIDI8.sendControlChange(cc, value, 10);  //MIDI DIN to synth board upper
 }
 
 
@@ -6488,7 +6669,7 @@ void reinitialiseToPanel() {
     upperData[P_filterCutoff] = 127;
     upperData[P_ampSustain] = 127;
     upperData[P_volumeControl] = 127;
-    upperData[P_noiseLevel] = 63;
+    upperData[P_noiseLevel] = 0;
     upperData[P_osc1PW] = 63;
     upperData[P_osc2PW] = 63;
     upperParamsToDisplay();
@@ -6503,7 +6684,7 @@ void reinitialiseToPanel() {
     lowerData[P_filterCutoff] = 127;
     lowerData[P_ampSustain] = 127;
     lowerData[P_volumeControl] = 127;
-    lowerData[P_noiseLevel] = 63;
+    lowerData[P_noiseLevel] = 0;
     lowerData[P_osc1PW] = 63;
     lowerData[P_osc2PW] = 63;
     lowerParamsToDisplay();
@@ -6518,7 +6699,7 @@ void reinitialiseToPanel() {
       upperData[P_filterCutoff] = 127;
       upperData[P_ampSustain] = 127;
       upperData[P_volumeControl] = 127;
-      upperData[P_noiseLevel] = 63;
+      upperData[P_noiseLevel] = 0;
       upperData[P_osc1PW] = 63;
       upperData[P_osc2PW] = 63;
       upperParamsToDisplay();
@@ -6554,12 +6735,12 @@ void renumberPerformancesOnSD() {
 void checkSwitches() {
   button.update(digitalRead(TUNE_BUTTON), 50, LOW);
   if (button.held()) {
-    midiCCOut61(WSresetAutotune, 127);
-    midiCCOut62(WSresetAutotune, 127);
+    midiCCOutLowerVCO(CC_AUTOTUNE_RESET, 127);
+    midiCCOutUpperVCO(CC_AUTOTUNE_RESET, 127);
     showCurrentParameterPage("Autotune", String("Reset"));
   } else if (button.released(true)) {
-    midiCCOut61(WSautotune, 127);
-    midiCCOut62(WSautotune, 127);
+    midiCCOutLowerVCO(CC_AUTOTUNE_START, 127);
+    midiCCOutUpperVCO(CC_AUTOTUNE_START, 127);
     showCurrentParameterPage("Autotune", String("Started"));
   }
 
@@ -7447,10 +7628,11 @@ void loop() {
     digitalWrite(TUNE_LED, HIGH);
 
     while (digitalRead(AUTOTUNE_INPUT) == HIGH) {
-      while (midi1.read()) {}
       while (MIDI.read()) {}
+      while (MIDI2.read()) {}
       while (MIDI6.read()) {}
       while (MIDI7.read()) {}
+      while (MIDI8.read()) {}
       while (usbMIDI.read()) {}
       delay(1);
     }
@@ -7458,10 +7640,11 @@ void loop() {
     digitalWrite(TUNE_LED, LOW);
     isAutotuning = false;
 
-    while (midi1.read()) {}
     while (MIDI.read()) {}
+    while (MIDI2.read()) {}
     while (MIDI6.read()) {}
     while (MIDI7.read()) {}
+    while (MIDI8.read()) {}
     while (usbMIDI.read()) {}
 
     allNotesOff();
@@ -7470,11 +7653,12 @@ void loop() {
     checkSwitches();
     pollAllMCPs();
     checkEncoder();
-    midi1.read(midiChannel);  //USB HOST MIDI Class Compliant
-    MIDI.read(midiChannel);
+    while (MIDI.read(midiChannel)) {}
+    while (MIDI2.read(midiChannel)) {}
     MIDI6.read(midiChannel);
+    MIDI8.read(midiChannel);
     MIDI7.read();
-    usbMIDI.read(midiChannel);
+    while (usbMIDI.read(midiChannel)) {}
     octoswitch.update();  // read all the buttons for the Synth
     LFODelayHandle();
     changeSpeed();

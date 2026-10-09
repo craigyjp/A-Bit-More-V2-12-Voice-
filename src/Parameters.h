@@ -52,11 +52,6 @@ static int storedEffectsMixL = -1;
 static bool toggleEffectsMixU = false;
 static bool toggleEffectsMixL = false;
 
-static int storedNoiseLevelU = -1;
-static int storedNoiseLevelL = -1;
-static bool toggleNoiseLevelU = false;
-static bool toggleNoiseLevelL = false;
-
 static int storedFM_DepthU = -1;
 static int storedFM_DepthL = -1;
 static bool toggleFM_DepthU = false;
@@ -97,13 +92,9 @@ static int storedOsc2_TriL = -1;
 static bool toggleOsc2_TriU = false;
 static bool toggleOsc2_TriL = false;
 
-int upperData[77];
-int lowerData[77];
-int panelData[77];
-// int prevUpperData[77];
-// bool upperPickUp[77];
-// int prevLowerData[77];
-// bool lowerPickUp[77];
+int upperData[78];
+int lowerData[78];
+int panelData[78];
 
 #define P_sysex 0
 #define P_pwLFO 1
@@ -180,6 +171,7 @@ int panelData[77];
 #define P_NotePriority 72
 #define P_keytrackSW 73
 #define P_ATDepth 74
+#define P_noiseSource 75
 
 int playMode = 0;
 int lowerSplitVoicePointer = 0;

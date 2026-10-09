@@ -279,6 +279,7 @@ Button *allButtons[] = {
 //#define unused 15
 
 #define AUTOTUNE_INPUT 54
+#define LFO_SELECT 30
 
 // 74HC165 Switches
 
@@ -344,6 +345,9 @@ TButton recallButton{ RECALL_SW, LOW, HOLD_DURATION, DEBOUNCE, CLICK_DURATION };
 Encoder encoder(ENCODER_PINB, ENCODER_PINA);  //This often needs the pins swapping depending on the encoder
 
 void setupHardware() {
+
+  pinMode(LFO_SELECT, OUTPUT);
+  digitalWrite(LFO_SELECT, LOW);
 
   pinMode(TUNE_LED, OUTPUT);
   digitalWrite(TUNE_LED, LOW);
