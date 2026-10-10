@@ -2,6 +2,8 @@
 
 void midiCCOutLowerVCO(byte cc, byte value);
 void midiCCOutUpperVCO(byte cc, byte value);
+void midiCCOutLowerFilter(byte cc, byte value);
+void midiCCOutUpperFilter(byte cc, byte value);
 
 void settingsMIDICh();
 void settingsSplitPoint();
@@ -10,6 +12,8 @@ void settingsAfterTouchU();
 void settingsAfterTouchL();
 void settingsEncoderDir();
 void settingsEncoderAccelerate();
+void settingsFilterPunch();
+void settingsAmplifierPunch();
 
 int currentIndexMIDICh();
 int currentIndexSplitPoint();
@@ -18,6 +22,8 @@ int currentIndexAfterTouchU();
 int currentIndexAfterTouchL();
 int currentIndexEncoderDir();
 int currentIndexEncoderAccelerate();
+int currentIndexFilterPunch();
+int currentIndexAmplifierPunch();
 
 void settingsSplitPoint(int index, const char *value) {
   if (strcmp(value, "36") == 0) newsplitPoint = 0;
@@ -106,6 +112,28 @@ void settingsEncoderAccelerate(int index, const char *value) {
   storeEncoderAccelerate(accelerate ? 1 : 0);
 }
 
+void settingsFilterPunch(int index, const char *value) {
+  filterPunch = (strcmp(value, "On") == 0);
+  storeFilterPunch(filterPunch ? 1 : 0);
+  midiCCOutLowerFilter(VB_FILTER_PUNCH, filterPunch ? 127 : 0);
+  midiCCOutUpperFilter(VB_FILTER_PUNCH, filterPunch ? 127 : 0);
+}
+
+void settingsAmplifierPunch(int index, const char *value) {
+  ampPunch = (strcmp(value, "On") == 0);
+  storeAmpPunch(ampPunch ? 1 : 0);
+  midiCCOutLowerFilter(VB_AMP_PUNCH, ampPunch ? 127 : 0);
+  midiCCOutUpperFilter(VB_AMP_PUNCH, ampPunch ? 127 : 0);
+}
+
+int currentIndexFilterPunch() {
+  return getFilterPunch() ? 1 : 0;   // 0 = "Off", 1 = "On"
+}
+
+int currentIndexAmplifierPunch() {
+  return getAmpPunch() ? 1 : 0;
+}
+
 int currentIndexSplitTrans() {
   return getSplitTrans();
 }
@@ -139,8 +167,10 @@ void setUpSettings() {
   settings::append(settings::SettingsOption{ "MIDI Ch.", { "All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "\0" }, settingsMIDICh, currentIndexMIDICh });
   settings::append(settings::SettingsOption{ "Split Point", { "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "\0" }, settingsSplitPoint, currentIndexSplitPoint });
   settings::append(settings::SettingsOption{ "Split Trans", { "-2 Octave", "-1 Octave", "Original", "+1 Octave", "+2 Octave", "\0" }, settingsSplitTrans, currentIndexSplitTrans });
-  settings::append(settings::SettingsOption{ "AfterTouch U", { "Off", "DCO Mod", "CutOff Freq", "VCF Mod", "VCA Mod", "\0" }, settingsAfterTouchU, currentIndexAfterTouchU });
   settings::append(settings::SettingsOption{ "AfterTouch L", { "Off", "DCO Mod", "CutOff Freq", "VCF Mod", "VCA Mod", "\0" }, settingsAfterTouchL, currentIndexAfterTouchL });
+  settings::append(settings::SettingsOption{ "AfterTouch U", { "Off", "DCO Mod", "CutOff Freq", "VCF Mod", "VCA Mod", "\0" }, settingsAfterTouchU, currentIndexAfterTouchU });
   settings::append(settings::SettingsOption{ "Encoder", { "Type 1", "Type 2", "\0" }, settingsEncoderDir, currentIndexEncoderDir });
   settings::append(settings::SettingsOption{ "Enc Speed", {"No", "Yes", "\0"}, settingsEncoderAccelerate, currentIndexEncoderAccelerate});
+  settings::append(settings::SettingsOption{ "Filter Punch", {"Off", "On", "\0"}, settingsFilterPunch, currentIndexFilterPunch});
+  settings::append(settings::SettingsOption{ "Amp Punch", {"Off", "On", "\0"}, settingsAmplifierPunch, currentIndexAmplifierPunch});
 }

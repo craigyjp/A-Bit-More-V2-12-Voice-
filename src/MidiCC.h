@@ -239,7 +239,7 @@
 #define VB_EFFECT_INTERNAL 82
 #define VB_FILTER_PUNCH 83
 
-#define VB_AMP_PUNCH 83
+#define VB_AMP_PUNCH 84
 #define VB_FILTER_A 85
 #define VB_FILTER_B 86
 #define VB_FILTER_C 87

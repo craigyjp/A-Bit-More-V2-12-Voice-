@@ -317,6 +317,14 @@ void setup() {
   // Read the encoders accelerate
   accelerate = getEncoderAccelerate();
 
+  // Envelope Punch settings
+  filterPunch = getFilterPunch();
+  ampPunch = getAmpPunch();
+  midiCCOutLowerFilter(VB_FILTER_PUNCH, filterPunch ? 127 : 0);
+  midiCCOutUpperFilter(VB_FILTER_PUNCH, filterPunch ? 127 : 0);
+  midiCCOutLowerFilter(VB_AMP_PUNCH, ampPunch ? 127 : 0);
+  midiCCOutUpperFilter(VB_AMP_PUNCH, ampPunch ? 127 : 0);
+
   //setupDisplay();
   delay(500);
 
@@ -4250,7 +4258,7 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.0");
       }
-      midiCCOutUpperVCO(CC_LFO1_MULT, 38);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 26);
       midiCCOut72(CClfoMult, 1);
       midiCCOut(CClfoMult, 1);
 
@@ -4258,7 +4266,7 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.5");
       }
-      midiCCOutUpperVCO(CC_LFO1_MULT, 64);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 51);
       midiCCOut72(CClfoMult, 2);
       midiCCOut(CClfoMult, 2);
 
@@ -4266,17 +4274,25 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.0");
       }
-      midiCCOutUpperVCO(CC_LFO1_MULT, 89);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 77);
       midiCCOut72(CClfoMult, 3);
       midiCCOut(CClfoMult, 3);
     } else if (upperData[P_lfoMultiplier] == 4) {
       if (announce) {
-        showCurrentParameterPage("LFO Multiplier", "x2.5");
+        showCurrentParameterPage("LFO Multiplier", "x3.0");
       }
-      midiCCOutUpperVCO(CC_LFO1_MULT, 114);
-      midiCCOut72(CClfoMult, 4);
+      midiCCOutUpperVCO(CC_LFO1_MULT, 102);
+      midiCCOut72(CClfoMult, 5);
       midiCCOut(CClfoMult, 4);
+    } else if (upperData[P_lfoMultiplier] == 5) {
+      if (announce) {
+        showCurrentParameterPage("LFO Multiplier", "x4.0");
+      }
+      midiCCOutUpperVCO(CC_LFO1_MULT, 127);
+      midiCCOut72(CClfoMult, 5);
+      midiCCOut(CClfoMult, 5);
     }
+
   } else {
     if (lowerData[P_lfoMultiplier] == 0) {
       if (announce) {
@@ -4292,9 +4308,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.0");
       }
-      midiCCOutLowerVCO(CC_LFO1_MULT, 38);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 26);
       if (wholemode) {
-        midiCCOutUpperVCO(CC_LFO1_MULT, 38);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 26);
       }
       midiCCOut72(CClfoMult, 1);
       midiCCOut(CClfoMult, 1);
@@ -4302,9 +4318,9 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x1.5");
       }
-      midiCCOutLowerVCO(CC_LFO1_MULT, 64);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 51);
       if (wholemode) {
-        midiCCOutUpperVCO(CC_LFO1_MULT, 64);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 51);
       }
       midiCCOut72(CClfoMult, 2);
       midiCCOut(CClfoMult, 2);
@@ -4312,22 +4328,32 @@ void updatelfoMultiplier(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Multiplier", "x2.0");
       }
-      midiCCOutLowerVCO(CC_LFO1_MULT, 89);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 77);
       if (wholemode) {
-        midiCCOutUpperVCO(CC_LFO1_MULT, 89);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 77);
       }
       midiCCOut72(CClfoMult, 3);
       midiCCOut(CClfoMult, 3);
     } else if (lowerData[P_lfoMultiplier] == 4) {
       if (announce) {
-        showCurrentParameterPage("LFO Multiplier", "x2.5");
+        showCurrentParameterPage("LFO Multiplier", "x3.0");
       }
-      midiCCOutLowerVCO(CC_LFO1_MULT, 114);
+      midiCCOutLowerVCO(CC_LFO1_MULT, 102);
       if (wholemode) {
-        midiCCOutUpperVCO(CC_LFO1_MULT, 114);
+        midiCCOutUpperVCO(CC_LFO1_MULT, 102);
       }
-      midiCCOut72(CClfoMult, 4);
+      midiCCOut72(CClfoMult, 5);
       midiCCOut(CClfoMult, 4);
+    } else if (lowerData[P_lfoMultiplier] == 5) {
+      if (announce) {
+        showCurrentParameterPage("LFO Multiplier", "x4.0");
+      }
+      midiCCOutLowerVCO(CC_LFO1_MULT, 127);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_LFO1_MULT, 127);
+      }
+      midiCCOut72(CClfoMult, 6);
+      midiCCOut(CClfoMult, 5);
     }
   }
 }
@@ -7199,7 +7225,7 @@ void onButtonPress(uint16_t btnIndex, uint8_t btnType) {
 
   if (btnIndex == LFO_MULT_SW && btnType == ROX_PRESSED) {
     panelData[P_lfoMultiplier] = panelData[P_lfoMultiplier] + 1;
-    if (panelData[P_lfoMultiplier] > 4) {
+    if (panelData[P_lfoMultiplier] > 5) {
       panelData[P_lfoMultiplier] = 0;
     }
     myControlChange(midiChannel, CClfoMult, panelData[P_lfoMultiplier]);

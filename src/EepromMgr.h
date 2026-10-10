@@ -19,6 +19,28 @@
 #define EEPROM_MONOMULTI_L 16
 #define EEPROM_MONOMULTI_U 17
 #define EEPROM_ENCODER_ACCELERATE 18
+#define EEPROM_FILTER_PUNCH 19
+#define EEPROM_AMP_PUNCH 20
+
+boolean getFilterPunch() {
+  byte fp = EEPROM.read(EEPROM_FILTER_PUNCH);
+  if (fp > 1) return false;   // unset EEPROM (255) defaults to Off
+  return fp == 1;
+}
+
+void storeFilterPunch(byte fp) {
+  EEPROM.update(EEPROM_FILTER_PUNCH, fp);
+}
+
+boolean getAmpPunch() {
+  byte ap = EEPROM.read(EEPROM_AMP_PUNCH);
+  if (ap > 1) return false;
+  return ap == 1;
+}
+
+void storeAmpPunch(byte ap) {
+  EEPROM.update(EEPROM_AMP_PUNCH, ap);
+}
 
 int getMIDIChannel() {
   byte midiChannel = EEPROM.read(EEPROM_MIDI_CH);

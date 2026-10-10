@@ -223,6 +223,9 @@ int oldfilterCutoff = 0;
 int oldfilterCutoffU = 0;
 int oldfilterCutoffL = 0;
 
+boolean filterPunch = false;
+boolean ampPunch = false;
+
 boolean upperSW = false;
 int oldupperSW = 0;
 boolean lowerSW = true;
