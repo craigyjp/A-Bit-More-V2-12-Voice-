@@ -302,6 +302,8 @@ void setup() {
   //Read Aftertouch from EEPROM, this can be set individually by each patch.
   upperData[P_AfterTouchDest] = getAfterTouchU();
   lowerData[P_AfterTouchDest] = getAfterTouchL();
+  midiCCOutLowerVCO(CC_AT_DESTINATION, lowerData[P_AfterTouchDest]);
+  midiCCOutUpperVCO(CC_AT_DESTINATION, upperData[P_AfterTouchDest]);
 
   splitPoint = getSplitPoint();
   splitPoint = (splitPoint + 36);
@@ -3391,16 +3393,16 @@ void updatekeytrack(boolean announce) {
     showCurrentParameterPage("Keytrack", int(keytrackstr));
   }
   if (upperSW) {
-    midiCCOutUpperVCO(WSkeytrack, upperData[P_keytrack]);
+    midiCCOutUpperVCO(CC_KEYTRACK_AMOUNT, upperData[P_keytrack]);
     midiCCOut(CCkeyTrack, upperData[P_keytrack]);
     midiCCOut71(CCkeyTrack, upperData[P_keytrack]);
   } else {
-    midiCCOutLowerVCO(WSkeytrack, lowerData[P_keytrack]);
+    midiCCOutLowerVCO(CC_KEYTRACK_AMOUNT, lowerData[P_keytrack]);
+    if (wholemode) {
+      midiCCOutUpperVCO(CC_KEYTRACK_AMOUNT, upperData[P_keytrack]);
+    }
     midiCCOut(CCkeyTrack, lowerData[P_keytrack]);
     midiCCOut71(CCkeyTrack, lowerData[P_keytrack]);
-    if (wholemode) {
-      midiCCOutUpperVCO(WSkeytrack, upperData[P_keytrack]);
-    }
   }
 }
 
@@ -3954,8 +3956,6 @@ void updateplayMode(boolean announce) {
     midiCCOut72(CCplayMode, 0);
     midiCCOut(CCplayMode, 0);
     allNotesOff();
-    //srp.writePin(UPPER_RELAY_2, HIGH);
-    //srp.writePin(UPPER_RELAY_3, HIGH);
     wholemode = true;
     dualmode = false;
     splitmode = false;
@@ -3972,8 +3972,6 @@ void updateplayMode(boolean announce) {
     midiCCOut72(CCplayMode, 1);
     midiCCOut(CCplayMode, 1);
     allNotesOff();
-    //srp.writePin(UPPER_RELAY_2, LOW);
-    //srp.writePin(UPPER_RELAY_3, LOW);
     wholemode = false;
     dualmode = true;
     splitmode = false;
@@ -3984,8 +3982,6 @@ void updateplayMode(boolean announce) {
     midiCCOut72(CCplayMode, 2);
     midiCCOut(CCplayMode, 2);
     allNotesOff();
-    //srp.writePin(UPPER_RELAY_2, LOW);
-    //srp.writePin(UPPER_RELAY_3, LOW);
     wholemode = false;
     dualmode = false;
     splitmode = true;
@@ -4764,14 +4760,14 @@ void updatekeyTrackSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Keytrack", "Off");
       }
-      midiCCOutUpperVCO(WSkeytrackSW, 0);
+      midiCCOutUpperVCO(CC_KEYTRACK_SW, 0);
       midiCCOut(CCkeyTrackSW, 0);
       midiCCOut72(CCkeyTrackSW, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Keytrack", "On");
       }
-      midiCCOutUpperVCO(WSkeytrackSW, 127);
+      midiCCOutUpperVCO(CC_KEYTRACK_SW, 127);
       midiCCOut(CCkeyTrackSW, 127);
       midiCCOut72(CCkeyTrackSW, 1);
     }
@@ -4780,22 +4776,22 @@ void updatekeyTrackSW(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Keytrack", "Off");
       }
-      midiCCOutLowerVCO(WSkeytrackSW, 0);
-      midiCCOut(CCkeyTrackSW, 0);
-      midiCCOut72(CCkeyTrackSW, 0);
+      midiCCOutLowerVCO(CC_KEYTRACK_SW, 0);
       if (wholemode) {
-        midiCCOutUpperVCO(WSkeytrackSW, 0);
+        midiCCOutUpperVCO(CC_KEYTRACK_SW, 0);
       }
+      midiCCOut(CCkeyTrackSW, 0);
+      midiCCOut72(CCkeyTrackSW, 0);      
     } else {
       if (announce) {
         showCurrentParameterPage("Keytrack", "On");
       }
-      midiCCOutLowerVCO(WSkeytrackSW, 127);
-      midiCCOut(CCkeyTrackSW, 127);
-      midiCCOut72(CCkeyTrackSW, 1);
+      midiCCOutLowerVCO(CC_KEYTRACK_SW, 127);
       if (wholemode) {
-        midiCCOutUpperVCO(WSkeytrackSW, 127);
+        midiCCOutUpperVCO(CC_KEYTRACK_SW, 127);
       }
+      midiCCOut(CCkeyTrackSW, 127);
+      midiCCOut72(CCkeyTrackSW, 1);      
     }
   }
 }
@@ -6261,14 +6257,8 @@ void myControlChange(byte channel, byte control, int value) {
       break;
 
     case CCmodwheel:
-      if (upperSW) {
-        midiCCOutUpperVCO(CC_MOD_WHEEL, value / 8);  // divided by 8 because the convert bumps it up to 1023
-      } else {
-        midiCCOutLowerVCO(CC_MOD_WHEEL, value / 8);
-        if (wholemode) {
-          midiCCOutUpperVCO(CC_MOD_WHEEL, value / 8);
-        }
-      }
+        midiCCOutUpperVCO(CC_MOD_WHEEL, value);
+        midiCCOutLowerVCO(CC_MOD_WHEEL, value);
       break;
 
     case CCallnotesoff:
@@ -6311,53 +6301,67 @@ void myProgramChange(byte channel, byte program) {
   }
 }
 
+// Cutoff to send = panel cutoff + (aftertouch x depth), clamped at 127
+byte cutoffWithAT(byte cutoff, byte at, byte depth) {
+  int v = cutoff + (at * depth) / 127;
+  return (v > 127) ? 127 : v;
+}
+
 void myAfterTouch(byte channel, byte value) {
-
-  afterTouch = (value * 1023) / 127;  // Exact scaling, range 1023
-  afterTouchU = (afterTouch * upperData[P_ATDepth]) / 1023;
-  afterTouchL = (afterTouch * lowerData[P_ATDepth]) / 1023;
-
+  MIDI.sendAfterTouch(value, 1);
   switch (upperData[P_AfterTouchDest]) {
+    case 0:
+      MIDI6.sendAfterTouch(value, 9);
+      break;
     case 1:
-      MIDI6.sendAfterTouch(value, 2);
+      MIDI6.sendAfterTouch(value, 9);
       break;
     case 2:
-      upperData[P_filterCutoff] = (oldfilterCutoffU + afterTouchU);
-      if (afterTouchU < 10) {
-        upperData[P_filterCutoff] = oldfilterCutoffU;
-      }
-      if (upperData[P_filterCutoff] > 1023) {
-        upperData[P_filterCutoff] = 1023;
-      }
+      atValueU = value;
+      midiCCOutUpperFilter(VB_FILTER_CUTOFF,
+        cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
       break;
     case 3:
-      upperData[P_filterLFO] = afterTouchU;
+      MIDI6.sendAfterTouch(value, 9);
       break;
     case 4:
-      upperData[P_amDepth] = afterTouchU;
+      MIDI6.sendAfterTouch(value, 9);
       break;
   }
   switch (lowerData[P_AfterTouchDest]) {
-    case 1:
-      MIDI6.sendAfterTouch(value, 1);
+    case 0:
+      MIDI6.sendAfterTouch(value, 9);
       if (wholemode) {
-        MIDI6.sendAfterTouch(value, 2);
+        MIDI8.sendAfterTouch(value, 9);
+      }
+      break;
+    case 1:
+      MIDI6.sendAfterTouch(value, 9);
+      if (wholemode) {
+        MIDI8.sendAfterTouch(value, 9);
       }
       break;
     case 2:
-      lowerData[P_filterCutoff] = (oldfilterCutoffL + afterTouchL);
-      if (afterTouchL < 10) {
-        lowerData[P_filterCutoff] = oldfilterCutoffL;
-      }
-      if (lowerData[P_filterCutoff] > 1023) {
-        lowerData[P_filterCutoff] = 1023;
+      atValueL = value;
+      midiCCOutLowerFilter(VB_FILTER_CUTOFF,
+        cutoffWithAT(lowerData[P_filterCutoff], atValueL, lowerData[P_ATDepth]));
+      if (wholemode) {
+        atValueU = value;
+        midiCCOutUpperFilter(VB_FILTER_CUTOFF,
+          cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
       }
       break;
     case 3:
-      lowerData[P_filterLFO] = afterTouchL;
+      MIDI6.sendAfterTouch(value, 9);
+      if (wholemode) {
+        MIDI8.sendAfterTouch(value, 9);
+      }
       break;
     case 4:
-      lowerData[P_amDepth] = afterTouchL;
+      MIDI6.sendAfterTouch(value, 9);
+      if (wholemode) {
+        MIDI8.sendAfterTouch(value, 9);
+      }
       break;
   }
 }

@@ -103,12 +103,8 @@
 
 // CC values used in the WAVEshare to control params
 
-#define   WSglideSW 65  // > 63
 #define   WStmDepth 18 // 0-127
 #define   WSATtmDepth 20 // 0-127
-
-#define   WSkeytrack 27 // 0-127
-#define   WSkeytrackSW 28 // > 63
 
 //
 // VCO Boards
@@ -156,6 +152,7 @@
 #define CC_LFO1_DEPTH         103  // LFO1 depth / level (FM amount)
 #define CC_LFO1_WAVEFORM      104  // LFO1 waveform, 0 - 15 (see LfoWave in LFO.h)
 #define CC_LFO1_MULT          106  // LFO1 tempo multiplier: 0.5/1/1.5/2/3/4
+#define CC_AT_DESTINATION     109  // Aftertouch destination: 0 Off, 1 DCO Mod, 2 Cutoff, 3 VCF Mod, 4 VCA Mod
 #define CC_LFO1_FILTER_DEPTH  110  // LFO1 -> Filter CV depth (channel_f, bipolar)
 #define CC_LFO1_AMP_DEPTH     111  // LFO1 -> Amp CV depth    (channel_h, bipolar)
 
@@ -172,6 +169,17 @@
 //    depth is per-chip via CC_PWM1_DEPTH / CC_PWM2_DEPTH above         //
 // ------------------------------------------------------------------ //
 #define CC_LFO2_RATE          108  // LFO2 rate, 0.05 - 20 Hz (exponential)
+
+// ------------------------------------------------------------------ //
+//  Keytrack  (channel_c filter CV)                                    //
+// ------------------------------------------------------------------ //
+#define CC_KEYTRACK_AMOUNT    105  // Keytrack amount, 0 - 100 % (pivots around note 60)
+#define CC_KEYTRACK_SW        107  // Keytrack on/off (127 = on, 0 = off -> fixed note-60 CV)
+
+// ------------------------------------------------------------------ //
+//  Aftertouch routing  (depth = CC19)                                 //
+// ------------------------------------------------------------------ //
+#define CC_AT_DESTINATION     109  // Raw 0-4: 0 Off, 1 DCO Mod, 2 Cutoff (handled by assigner), 3 VCF Mod, 4 VCA Mod
 
 // ------------------------------------------------------------------ //
 //  System / actions  (act on value == 127)                            //
