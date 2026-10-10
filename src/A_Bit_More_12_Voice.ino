@@ -1601,47 +1601,6 @@ void setTranspose(int splitTrans) {
   }
 }
 
-void LFODelayHandle() {
-  // LFO Delay code
-  getDelayTime();
-
-  unsigned long currentMillisU = millis();
-  if (upperData[P_monoMulti] && !upperData[P_LFODelayGo]) {
-    if (oldnumberOfNotesU < numberOfNotesU) {
-      previousMillisU = currentMillisU;
-      oldnumberOfNotesU = numberOfNotesU;
-    }
-  }
-  if (numberOfNotesU > 0) {
-    if (currentMillisU - previousMillisU >= intervalU) {
-      upperData[P_LFODelayGo] = 1;
-    } else {
-      upperData[P_LFODelayGo] = 0;
-    }
-  } else {
-    upperData[P_LFODelayGo] = 1;
-    previousMillisU = currentMillisU;  //reset timer so its ready for the next time
-  }
-
-  unsigned long currentMillisL = millis();
-  if (lowerData[P_monoMulti] && !lowerData[P_LFODelayGo]) {
-    if (oldnumberOfNotesL < numberOfNotesL) {
-      previousMillisL = currentMillisL;
-      oldnumberOfNotesL = numberOfNotesL;
-    }
-  }
-  if (numberOfNotesL > 0) {
-    if (currentMillisL - previousMillisL >= intervalL) {
-      lowerData[P_LFODelayGo] = 1;
-    } else {
-      lowerData[P_LFODelayGo] = 0;
-    }
-  } else {
-    lowerData[P_LFODelayGo] = 1;
-    previousMillisL = currentMillisL;  //reset timer so its ready for the next time
-  }
-}
-
 // Mono lower & uppper
 
 void commandTopNoteLower() {
@@ -1857,6 +1816,12 @@ void myNoteOn(byte channel, byte note, byte velocity) {
 
   numberOfNotesU++;
   numberOfNotesL++;
+
+  // Every key press pulses NOTES_HELD to re-arm the DCO LFO1 delay.
+  // Sent for each press, not just the first, so the DCOs can retrigger.
+  midiCCOutUpperVCO(CC_NOTES_HELD, 127);
+  midiCCOutLowerVCO(CC_NOTES_HELD, 127);
+
   prevNote = note;
 
   // ---- CHORD HOLD FOR POLY1/POLY2 ----
@@ -2017,8 +1982,19 @@ void myNoteOff(byte channel, byte note, byte velocity) {
 
   if (isAutotuning) return;
 
-  numberOfNotesU--;
-  numberOfNotesL--;
+  if (numberOfNotesU > 0) {
+    numberOfNotesU--;
+  }
+  if (numberOfNotesL > 0) {
+    numberOfNotesL--;
+  }
+
+  if (numberOfNotesU == 0) {
+    midiCCOutUpperVCO(CC_NOTES_HELD, 0);
+  }
+  if (numberOfNotesL == 0) {
+    midiCCOutLowerVCO(CC_NOTES_HELD, 0);
+  }
 
   // ---- CHORD HOLD FOR POLY1/POLY2 ----
   bool polyMode = (lowerData[P_keyboardMode] == 0 || lowerData[P_keyboardMode] == 1);
@@ -2491,20 +2467,6 @@ void DinHandlePitchBend(byte channel, int pitch) {
     MIDI6.sendPitchBend(pitch, 9);
     MIDI8.sendPitchBend(pitch, 9);
   }
-}
-
-void getDelayTime() {
-  delaytimeL = (lowerData[P_LFODelay]);
-  if (delaytimeL <= 0) {
-    delaytimeL = 0.1;
-  }
-  intervalL = (delaytimeL * 100);
-
-  delaytimeU = (upperData[P_LFODelay]);
-  if (delaytimeU <= 0) {
-    delaytimeU = 0.1;
-  }
-  intervalU = (delaytimeU * 100);
 }
 
 void allNotesOff() {
@@ -3561,116 +3523,27 @@ void updateStratusLFOWaveform(boolean announce) {
     panelData[P_lfoAlt] = lowerData[P_lfoAlt];
   }
 
-  if (panelData[P_lfoAlt]) {
-    switch (panelData[P_LFOWaveform]) {
-      case 0:
-        StratusLFOWaveform = "Sawtooth Up";
-        LFOWaveCV = 1;
-        midiCCOut72(CCLFOWaveform, 0);
-        break;
+  // 0-7 normally, 8-15 when lfoAlt is pressed
+  uint8_t wave = (panelData[P_LFOWaveform] & 0x07) + (panelData[P_lfoAlt] ? 8 : 0);
 
-      case 1:
-        StratusLFOWaveform = "Sawtooth Down";
-        LFOWaveCV = 20;
-        midiCCOut72(CCLFOWaveform, 1);
-        break;
 
-      case 2:
-        StratusLFOWaveform = "Squarewave";
-        LFOWaveCV = 35;
-        midiCCOut72(CCLFOWaveform, 2);
-        break;
+  StratusLFOWaveform = lfoWaveNames[wave];
 
-      case 3:
-        StratusLFOWaveform = "Triangle";
-        LFOWaveCV = 50;
-        midiCCOut72(CCLFOWaveform, 3);
-        break;
+  uint8_t waveCC = (wave * 127 + 14) / 15;
 
-      case 4:
-        StratusLFOWaveform = "Sinewave";
-        LFOWaveCV = 74;
-        midiCCOut72(CCLFOWaveform, 4);
-        break;
+  midiCCOut72(CCLFOWaveform, panelData[P_LFOWaveform]);  // unchanged panel echo (0-7)
+  midiCCOut(CCLFOWaveform, waveCC);
 
-      case 5:
-        StratusLFOWaveform = "Sweeps";
-        LFOWaveCV = 90;
-        midiCCOut72(CCLFOWaveform, 5);
-        break;
-
-      case 6:
-        StratusLFOWaveform = "Lumps";
-        LFOWaveCV = 107;
-        midiCCOut72(CCLFOWaveform, 6);
-        break;
-
-      case 7:
-        StratusLFOWaveform = "Sample & Hold";
-        LFOWaveCV = 122;
-        midiCCOut72(CCLFOWaveform, 7);
-        break;
-    }
-  } else {
-    switch (panelData[P_LFOWaveform]) {
-      case 0:
-        StratusLFOWaveform = "Saw +Oct";
-        LFOWaveCV = 1;
-        midiCCOut72(CCLFOWaveform, 0);
-        break;
-
-      case 1:
-        StratusLFOWaveform = "Quad Saw";
-        LFOWaveCV = 20;
-        midiCCOut72(CCLFOWaveform, 1);
-        break;
-
-      case 2:
-        StratusLFOWaveform = "Quad Pulse";
-        LFOWaveCV = 35;
-        midiCCOut72(CCLFOWaveform, 2);
-        break;
-
-      case 3:
-        StratusLFOWaveform = "Tri Step";
-        LFOWaveCV = 50;
-        midiCCOut72(CCLFOWaveform, 3);
-        break;
-
-      case 4:
-        StratusLFOWaveform = "Sine +Oct";
-        LFOWaveCV = 74;
-        midiCCOut72(CCLFOWaveform, 4);
-        break;
-
-      case 5:
-        StratusLFOWaveform = "Sine +3rd";
-        LFOWaveCV = 90;
-        midiCCOut72(CCLFOWaveform, 5);
-        break;
-
-      case 6:
-        StratusLFOWaveform = "Sine +4th";
-        LFOWaveCV = 107;
-        midiCCOut72(CCLFOWaveform, 6);
-        break;
-
-      case 7:
-        StratusLFOWaveform = "Rand Slopes";
-        LFOWaveCV = 122;
-        midiCCOut72(CCLFOWaveform, 7);
-        break;
-    }
-  }
   if (announce) {
     showCurrentParameterPage("LFO Wave", StratusLFOWaveform);
   }
+
   if (upperSW) {
-    LFOWaveCVupper = LFOWaveCV;
+    midiCCOutUpperVCO(CC_LFO1_WAVEFORM, waveCC);
   } else {
-    LFOWaveCVlower = LFOWaveCV;
+    midiCCOutLowerVCO(CC_LFO1_WAVEFORM, waveCC);
     if (wholemode) {
-      LFOWaveCVupper = LFOWaveCV;
+      midiCCOutUpperVCO(CC_LFO1_WAVEFORM, waveCC);
     }
   }
 }
@@ -4781,7 +4654,7 @@ void updatekeyTrackSW(boolean announce) {
         midiCCOutUpperVCO(CC_KEYTRACK_SW, 0);
       }
       midiCCOut(CCkeyTrackSW, 0);
-      midiCCOut72(CCkeyTrackSW, 0);      
+      midiCCOut72(CCkeyTrackSW, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Keytrack", "On");
@@ -4791,7 +4664,7 @@ void updatekeyTrackSW(boolean announce) {
         midiCCOutUpperVCO(CC_KEYTRACK_SW, 127);
       }
       midiCCOut(CCkeyTrackSW, 127);
-      midiCCOut72(CCkeyTrackSW, 1);      
+      midiCCOut72(CCkeyTrackSW, 1);
     }
   }
 }
@@ -5376,12 +5249,14 @@ void updateMonoMulti(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Retrigger", "Off");
       }
+      midiCCOutUpperVCO(CC_LFO1_RETRIG, 0);
       midiCCOut(CCmonoMulti, 0);
       midiCCOut72(CCmonoMulti, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("LFO Retrigger", "On");
       }
+      midiCCOutUpperVCO(CC_LFO1_RETRIG, 0);
       midiCCOut(CCmonoMulti, 127);
       midiCCOut72(CCmonoMulti, 1);
     }
@@ -5390,20 +5265,22 @@ void updateMonoMulti(boolean announce) {
       if (announce) {
         showCurrentParameterPage("LFO Retrigger", "Off");
       }
+      midiCCOutLowerVCO(CC_LFO1_RETRIG, 0);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_LFO1_RETRIG, 0);
+      }
       midiCCOut(CCmonoMulti, 0);
       midiCCOut72(CCmonoMulti, 0);
-      if (wholemode) {
-        upperData[P_monoMulti] = lowerData[P_monoMulti];
-      }
     } else {
       if (announce) {
         showCurrentParameterPage("LFO Retrigger", "On");
       }
+      midiCCOutLowerVCO(CC_LFO1_RETRIG, 127);
+      if (wholemode) {
+        midiCCOutUpperVCO(CC_LFO1_RETRIG, 127);
+      }
       midiCCOut(CCmonoMulti, 127);
       midiCCOut72(CCmonoMulti, 1);
-      if (wholemode) {
-        upperData[P_monoMulti] = lowerData[P_monoMulti];
-      }
     }
   }
 }
@@ -5421,9 +5298,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_glideTime] = value;
       } else {
         lowerData[P_glideTime] = value;
-        if (wholemode) {
-          upperData[P_glideTime] = value;
-        }
       }
       glideTimestr = LINEAR[value];
       updateglideTime(1);
@@ -5434,9 +5308,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_pwLFO] = value;
       } else {
         lowerData[P_pwLFO] = value;
-        if (wholemode) {
-          upperData[P_pwLFO] = value;
-        }
       }
       pwLFOstr = LFOTEMPO[value];  // for display
       updatepwLFO(1);
@@ -5447,9 +5318,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_fmDepth] = value;
       } else {
         lowerData[P_fmDepth] = value;
-        if (wholemode) {
-          upperData[P_fmDepth] = value;
-        }
       }
       fmDepthstr = value;
       updatefmDepth(1);
@@ -5460,9 +5328,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2PW] = value;
       } else {
         lowerData[P_osc2PW] = value;
-        if (wholemode) {
-          upperData[P_osc2PW] = value;
-        }
       }
       osc2PWstr = PULSEWIDTH[value];
       updateosc2PW(1);
@@ -5473,9 +5338,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2PWM] = value;
       } else {
         lowerData[P_osc2PWM] = value;
-        if (wholemode) {
-          upperData[P_osc2PWM] = value;
-        }
       }
       osc2PWMstr = value;
       updateosc2PWM(1);
@@ -5486,9 +5348,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1PW] = value;
       } else {
         lowerData[P_osc1PW] = value;
-        if (wholemode) {
-          upperData[P_osc1PW] = value;
-        }
       }
       osc1PWstr = PULSEWIDTH[value];
       updateosc1PW(1);
@@ -5499,9 +5358,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1PWM] = value;
       } else {
         lowerData[P_osc1PWM] = value;
-        if (wholemode) {
-          upperData[P_osc1PWM] = value;
-        }
       }
       osc1PWMstr = value;
       updateosc1PWM(1);
@@ -5512,9 +5368,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1Range] = value;
       } else {
         lowerData[P_osc1Range] = value;
-        if (wholemode) {
-          upperData[P_osc1Range] = value;
-        }
       }
       updateosc1Range(1);
       break;
@@ -5524,9 +5377,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2Range] = value;
       } else {
         lowerData[P_osc2Range] = value;
-        if (wholemode) {
-          upperData[P_osc2Range] = value;
-        }
       }
       updateosc2Range(1);
       break;
@@ -5536,9 +5386,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2Detune] = value;
       } else {
         lowerData[P_osc2Detune] = value;
-        if (wholemode) {
-          upperData[P_osc2Detune] = value;
-        }
       }
       osc2Detunestr = PULSEWIDTH[value];
       updateosc2Detune(1);
@@ -5549,9 +5396,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2Interval] = value;
       } else {
         lowerData[P_osc2Interval] = value;
-        if (wholemode) {
-          upperData[P_osc2Interval] = value;
-        }
       }
       osc2Intervalstr = value;
       updateosc2Interval(1);
@@ -5562,9 +5406,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_ATDepth] = value;
       } else {
         lowerData[P_ATDepth] = value;
-        if (wholemode) {
-          upperData[P_ATDepth] = value;
-        }
       }
       ATDepthstr = value;
       updateATDepth(1);
@@ -5575,11 +5416,8 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_noiseLevel] = value;
       } else {
         lowerData[P_noiseLevel] = value;
-        if (wholemode) {
-          upperData[P_noiseLevel] = value;
-        }
       }
-      noiseLevelstr = LINEARCENTREZERO[value];
+      noiseLevelstr = value;
       updatenoiseLevel(1);
       break;
 
@@ -5588,9 +5426,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2SawLevel] = value;
       } else {
         lowerData[P_osc2SawLevel] = value;
-        if (wholemode) {
-          upperData[P_osc2SawLevel] = value;
-        }
       }
       osc2SawLevelstr = value;  // for display
       updateOsc2SawLevel(1);
@@ -5601,9 +5436,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1SawLevel] = value;
       } else {
         lowerData[P_osc1SawLevel] = value;
-        if (wholemode) {
-          upperData[P_osc1SawLevel] = value;
-        }
       }
       osc1SawLevelstr = value;  // for display
       updateOsc1SawLevel(1);
@@ -5614,9 +5446,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2PulseLevel] = value;
       } else {
         lowerData[P_osc2PulseLevel] = value;
-        if (wholemode) {
-          upperData[P_osc2PulseLevel] = value;
-        }
       }
       osc2PulseLevelstr = value;  // for display
       updateOsc2PulseLevel(1);
@@ -5627,9 +5456,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1PulseLevel] = value;
       } else {
         lowerData[P_osc1PulseLevel] = value;
-        if (wholemode) {
-          upperData[P_osc1PulseLevel] = value;
-        }
       }
       osc1PulseLevelstr = value;  // for display
       updateOsc1PulseLevel(1);
@@ -5640,9 +5466,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc2TriangleLevel] = value;
       } else {
         lowerData[P_osc2TriangleLevel] = value;
-        if (wholemode) {
-          upperData[P_osc2TriangleLevel] = value;
-        }
       }
       osc2TriangleLevelstr = value;  // for display
       updateOsc2TriangleLevel(1);
@@ -5653,9 +5476,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_osc1SubLevel] = value;
       } else {
         lowerData[P_osc1SubLevel] = value;
-        if (wholemode) {
-          upperData[P_osc1SubLevel] = value;
-        }
       }
       osc1SubLevelstr = value;  // for display
       updateOsc1SubLevel(1);
@@ -5666,9 +5486,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_LFODelay] = value;
       } else {
         lowerData[P_LFODelay] = value;
-        if (wholemode) {
-          upperData[P_LFODelay] = value;
-        }
       }
       LFODelaystr = value;  // for display
       updateLFODelay(1);
@@ -5681,10 +5498,6 @@ void myControlChange(byte channel, byte control, int value) {
       } else {
         lowerData[P_filterCutoff] = value;
         oldfilterCutoffL = value;
-        if (wholemode) {
-          upperData[P_filterCutoff] = value;
-          oldfilterCutoffU = value;
-        }
       }
       filterCutoffstr = FILTERCUTOFF[value];
       updateFilterCutoff(1);
@@ -5695,9 +5508,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterLFO] = value;
       } else {
         lowerData[P_filterLFO] = value;
-        if (wholemode) {
-          upperData[P_filterLFO] = value;
-        }
       }
       filterLFOstr = value;
       updatefilterLFO(1);
@@ -5708,9 +5518,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterRes] = value;
       } else {
         lowerData[P_filterRes] = value;
-        if (wholemode) {
-          upperData[P_filterRes] = value;
-        }
       }
       filterResstr = int(value);
       updatefilterRes(1);
@@ -5721,9 +5528,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterType] = value;
       } else {
         lowerData[P_filterType] = value;
-        if (wholemode) {
-          upperData[P_filterType] = value;
-        }
       }
       updateFilterType(1);
       break;
@@ -5733,9 +5537,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterEGlevel] = value;
       } else {
         lowerData[P_filterEGlevel] = value;
-        if (wholemode) {
-          upperData[P_filterEGlevel] = value;
-        }
       }
       filterEGlevelstr = int(value);
       updatefilterEGlevel(1);
@@ -5746,9 +5547,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_LFORate] = value;
       } else {
         lowerData[P_LFORate] = value;
-        if (wholemode) {
-          upperData[P_LFORate] = value;
-        }
       }
       LFORatestr = LFOTEMPO[value];  // for display
       updateLFORate(1);
@@ -5759,9 +5557,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_modWheelDepth] = value;
       } else {
         lowerData[P_modWheelDepth] = value;
-        if (wholemode) {
-          upperData[P_modWheelDepth] = value;
-        }
       }
       modWheelDepthstr = value;  // for display
       updatemodWheelDepth(1);
@@ -5772,9 +5567,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_PitchBendLevel] = value;
       } else {
         lowerData[P_PitchBendLevel] = value;
-        if (wholemode) {
-          upperData[P_PitchBendLevel] = value;
-        }
       }
       PitchBendLevelstr = value;  // for display
       updatePitchBendDepth(1);
@@ -5785,9 +5577,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_effectPot1] = value;
       } else {
         lowerData[P_effectPot1] = value;
-        if (wholemode) {
-          upperData[P_effectPot1] = value;
-        }
       }
       effectPot1str = value;  // for display
       updateeffectPot1(1);
@@ -5798,9 +5587,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_effectPot2] = value;
       } else {
         lowerData[P_effectPot2] = value;
-        if (wholemode) {
-          upperData[P_effectPot2] = value;
-        }
       }
       effectPot2str = value;  // for display
       updateeffectPot2(1);
@@ -5811,9 +5597,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_effectPot3] = value;
       } else {
         lowerData[P_effectPot3] = value;
-        if (wholemode) {
-          upperData[P_effectPot3] = value;
-        }
       }
       effectPot3str = value;  // for display
       updateeffectPot3(1);
@@ -5824,9 +5607,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_effectsMix] = value;
       } else {
         lowerData[P_effectsMix] = value;
-        if (wholemode) {
-          upperData[P_effectsMix] = value;
-        }
       }
       effectsMixstr = LINEARCENTREZERO[value];  // for display
       updateeffectsMix(1);
@@ -5837,9 +5617,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterAttack] = value;
       } else {
         lowerData[P_filterAttack] = value;
-        if (wholemode) {
-          upperData[P_filterAttack] = value;
-        }
       }
       filterAttackstr = ENVTIMES[value];
       updatefilterAttack(1);
@@ -5850,9 +5627,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterDecay] = value;
       } else {
         lowerData[P_filterDecay] = value;
-        if (wholemode) {
-          upperData[P_filterDecay] = value;
-        }
       }
       filterDecaystr = ENVTIMES[value];
       updatefilterDecay(1);
@@ -5863,9 +5637,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterSustain] = value;
       } else {
         lowerData[P_filterSustain] = value;
-        if (wholemode) {
-          upperData[P_filterSustain] = value;
-        }
       }
       filterSustainstr = LINEAR_FILTERMIXERSTR[value];
       updatefilterSustain(1);
@@ -5876,9 +5647,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_filterRelease] = value;
       } else {
         lowerData[P_filterRelease] = value;
-        if (wholemode) {
-          upperData[P_filterRelease] = value;
-        }
       }
       filterReleasestr = ENVTIMES[value];
       updatefilterRelease(1);
@@ -5889,9 +5657,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_ampAttack] = value;
       } else {
         lowerData[P_ampAttack] = value;
-        if (wholemode) {
-          upperData[P_ampAttack] = value;
-        }
       }
       ampAttackstr = ENVTIMES[value];
       updateampAttack(1);
@@ -5904,10 +5669,6 @@ void myControlChange(byte channel, byte control, int value) {
       } else {
         lowerData[P_ampDecay] = value;
         lowerData[P_oldampDecay] = value;
-        if (wholemode) {
-          upperData[P_ampDecay] = value;
-          upperData[P_oldampDecay] = value;
-        }
       }
       ampDecaystr = ENVTIMES[value];
       updateampDecay(1);
@@ -5920,10 +5681,6 @@ void myControlChange(byte channel, byte control, int value) {
       } else {
         lowerData[P_ampSustain] = value;
         lowerData[P_oldampSustain] = value;
-        if (wholemode) {
-          upperData[P_ampSustain] = value;
-          upperData[P_oldampSustain] = value;
-        }
       }
       ampSustainstr = LINEAR_FILTERMIXERSTR[value];
       updateampSustain(1);
@@ -5936,10 +5693,6 @@ void myControlChange(byte channel, byte control, int value) {
       } else {
         lowerData[P_ampRelease] = value;
         lowerData[P_oldampRelease] = value;
-        if (wholemode) {
-          upperData[P_ampRelease] = value;
-          upperData[P_oldampRelease] = value;
-        }
       }
       ampReleasestr = ENVTIMES[value];
       updateampRelease(1);
@@ -5950,9 +5703,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_volumeControl] = value;
       } else {
         lowerData[P_volumeControl] = value;
-        if (wholemode) {
-          upperData[P_volumeControl] = value;
-        }
       }
       volumeControlstr = value;
       updatevolumeControl(1);
@@ -5963,9 +5713,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_pmDCO2] = value;
       } else {
         lowerData[P_pmDCO2] = value;
-        if (wholemode) {
-          upperData[P_pmDCO2] = value;
-        }
       }
       pmDCO2str = value;
       updatePM_DCO2(1);
@@ -5976,9 +5723,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_pmFilterEnv] = value;
       } else {
         lowerData[P_pmFilterEnv] = value;
-        if (wholemode) {
-          upperData[P_pmFilterEnv] = value;
-        }
       }
       pmFilterEnvstr = value;
       updatePM_FilterEnv(1);
@@ -5989,9 +5733,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_keytrack] = value;
       } else {
         lowerData[P_keytrack] = value;
-        if (wholemode) {
-          upperData[P_keytrack] = value;
-        }
       }
       keytrackstr = value;
       updatekeytrack(1);
@@ -6003,9 +5744,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_amDepth] = value;
       } else {
         lowerData[P_amDepth] = value;
-        if (wholemode) {
-          upperData[P_amDepth] = value;
-        }
       }
       amDepthstr = value;
       updateamDepth(1);
@@ -6237,9 +5975,6 @@ void myControlChange(byte channel, byte control, int value) {
         upperData[P_LFOWaveform] = value;
       } else {
         lowerData[P_LFOWaveform] = value;
-        if (wholemode) {
-          upperData[P_LFOWaveform] = value;
-        }
       }
       updateStratusLFOWaveform(1);
       break;
@@ -6257,8 +5992,8 @@ void myControlChange(byte channel, byte control, int value) {
       break;
 
     case CCmodwheel:
-        midiCCOutUpperVCO(CC_MOD_WHEEL, value);
-        midiCCOutLowerVCO(CC_MOD_WHEEL, value);
+      midiCCOutUpperVCO(CC_MOD_WHEEL, value);
+      midiCCOutLowerVCO(CC_MOD_WHEEL, value);
       break;
 
     case CCallnotesoff:
@@ -6319,7 +6054,7 @@ void myAfterTouch(byte channel, byte value) {
     case 2:
       atValueU = value;
       midiCCOutUpperFilter(VB_FILTER_CUTOFF,
-        cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
+                           cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
       break;
     case 3:
       MIDI6.sendAfterTouch(value, 9);
@@ -6344,11 +6079,11 @@ void myAfterTouch(byte channel, byte value) {
     case 2:
       atValueL = value;
       midiCCOutLowerFilter(VB_FILTER_CUTOFF,
-        cutoffWithAT(lowerData[P_filterCutoff], atValueL, lowerData[P_ATDepth]));
+                           cutoffWithAT(lowerData[P_filterCutoff], atValueL, lowerData[P_ATDepth]));
       if (wholemode) {
         atValueU = value;
         midiCCOutUpperFilter(VB_FILTER_CUTOFF,
-          cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
+                             cutoffWithAT(upperData[P_filterCutoff], atValueU, upperData[P_ATDepth]));
       }
       break;
     case 3:
@@ -7627,7 +7362,16 @@ void checkChordHold() {
 
 void loop() {
 
+  static uint32_t autotuneHighSince = 0;
+  bool autotuneHigh = false;
   if (digitalRead(AUTOTUNE_INPUT) == HIGH) {
+    if (autotuneHighSince == 0) autotuneHighSince = millis();
+    autotuneHigh = (millis() - autotuneHighSince) > 20;  // must stay high 20 ms
+  } else {
+    autotuneHighSince = 0;
+  }
+
+  if (autotuneHigh) {
     isAutotuning = true;
     digitalWrite(TUNE_LED, HIGH);
 
@@ -7664,7 +7408,6 @@ void loop() {
     MIDI7.read();
     while (usbMIDI.read(midiChannel)) {}
     octoswitch.update();  // read all the buttons for the Synth
-    LFODelayHandle();
     changeSpeed();
     checkChordHold();
   }

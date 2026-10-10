@@ -99,12 +99,7 @@
 #define   CCosc2PulseLevel 102
 #define   CCosc2SawLevel 103
 #define   CCeffectparam3 104
-#define   CCallnotesoff 123//Panic button
-
-// CC values used in the WAVEshare to control params
-
-#define   WStmDepth 18 // 0-127
-#define   WSATtmDepth 20 // 0-127
+#define   CCallnotesoff 123   //Panic button
 
 //
 // VCO Boards
@@ -150,7 +145,7 @@
 // ------------------------------------------------------------------ //
 #define CC_LFO1_RATE          102  // LFO1 rate, 0.05 - 12.8 Hz (exponential)
 #define CC_LFO1_DEPTH         103  // LFO1 depth / level (FM amount)
-#define CC_LFO1_WAVEFORM      104  // LFO1 waveform, 0 - 15 (see LfoWave in LFO.h)
+#define CC_LFO1_WAVEFORM      104  // LFO1 waveform, 0 - 127 (see LfoWave in LFO.h)
 #define CC_LFO1_MULT          106  // LFO1 tempo multiplier: 0.5/1/1.5/2/3/4
 #define CC_AT_DESTINATION     109  // Aftertouch destination: 0 Off, 1 DCO Mod, 2 Cutoff, 3 VCF Mod, 4 VCA Mod
 #define CC_LFO1_FILTER_DEPTH  110  // LFO1 -> Filter CV depth (channel_f, bipolar)

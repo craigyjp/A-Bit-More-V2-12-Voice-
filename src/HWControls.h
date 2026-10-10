@@ -354,7 +354,7 @@ void setupHardware() {
 
   pinMode(TUNE_BUTTON, INPUT_PULLUP);
 
-  pinMode(AUTOTUNE_INPUT, INPUT);
+  pinMode(AUTOTUNE_INPUT, INPUT_PULLDOWN);
 
   //Switches
 

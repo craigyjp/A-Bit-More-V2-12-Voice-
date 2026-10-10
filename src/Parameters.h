@@ -288,8 +288,23 @@ boolean wholemode = true;
 boolean dualmode = false;
 boolean splitmode = false;
 
-int LFOWaveCV = 0;
-int LFOWaveCVupper = 0;
-int LFOWaveCVlower = 0;
-
 int returnvalue = 0;
+
+static const char *const lfoWaveNames[16] = {
+  "Triangle",       // 0  WAVE_TRI
+  "Sinewave",       // 1  WAVE_SINE
+  "Ramp Up",        // 2  WAVE_RAMP_UP
+  "Ramp Down",      // 3  WAVE_RAMP_DOWN
+  "Squarewave",     // 4  WAVE_SQUARE
+  "Trapezoid",      // 5  WAVE_TRAP
+  "Exp Decay",      // 6  WAVE_EXP_DOWN
+  "Exp Rise",       // 7  WAVE_EXP_UP
+  "Log Sweep",      // 8  WAVE_LOG_SWEEP
+  "Twin Peak",      // 9  WAVE_TWIN
+  "Triple Peak",    // 10 WAVE_TRIPLE
+  "Stair Up",       // 11 WAVE_STAIR_UP
+  "Stair Down",     // 12 WAVE_STAIR_DOWN
+  "Sample & Hold",  // 13 WAVE_SH_RANDOM
+  "Rand Slopes",    // 14 WAVE_SMOOTH_RAND
+  "Narrow Pulse"    // 15 WAVE_PULSE
+};
