@@ -2,7 +2,7 @@
 
 ## So this is a rebuild of the "A Bit More" 8 voice polyphonic analogue synth
 
-## So a new synth is born with the same controller, new displays and the same filters, but now each RP2350 autotunes a pair of AS3340 VCO's
+## So a new synth is born with a modified controller, same displays and new self contained voice boards, but now the LFO's have moved to the RP2350 in software and each RP2350 autotunes a pair of AS3340 VCO's
 
 ![Synth](Photos/synth.jpg)
 
