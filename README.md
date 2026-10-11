@@ -14,10 +14,8 @@ Filters are based on the Matrix 12 pole switching filters with 16 filter types a
 
 The case and keybed are a CME UF-70 Classic (black) and I've only kept the main MIDI board and grounded the pots/slider inputs.
 
-# Although I have this repository the schematics are far from complete and some code is still required.
+# Although I have this repository the schematics are nearly complete and some code is still required.
 
 # Things to fix 
 
-* Add chord hold in wholemode only.
-* Add MIDI out/thru.
 * Add sustain from pedal A (CC 64).
