@@ -1,6 +1,6 @@
-## Based on the the original Crumar Bit series synthesizers I had created an RP2040 based DCO synthesizer. 
 
-## Unfortunately the project did not work out too well as the DCO's were noisy and the PWM and triangle sounded atrocious.
+
+## So this is a rebuild of the "A Bit More" 8 voice polyphonic analogue synth
 
 ## So a new synth is born with the same controller, new displays and the same filters, but now each RP2350 autotunes a pair of AS3340 VCO's
 
