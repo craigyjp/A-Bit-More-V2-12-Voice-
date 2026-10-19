@@ -430,11 +430,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_glideTime] = (lowerData[P_glideTime] + speed);
         lowerData[P_glideTime] = constrain(lowerData[P_glideTime], 0, 127);
         glideTimestr = LINEAR[lowerData[P_glideTime]];
-        if (wholemode) {
-          upperData[P_glideTime] = lowerData[P_glideTime];
-        }
       }
-
       updateglideTime(1);
       break;
 
@@ -447,11 +443,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc1PW] = (lowerData[P_osc1PW] + speed);
         lowerData[P_osc1PW] = constrain(lowerData[P_osc1PW], 0, 127);
         osc1PWstr = PULSEWIDTH[lowerData[P_osc1PW]];
-        if (wholemode) {
-          upperData[P_osc1PW] = lowerData[P_osc1PW];
-        }
       }
-
       updateosc1PW(1);
       break;
 
@@ -464,11 +456,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc1PWM] = (lowerData[P_osc1PWM] + speed);
         lowerData[P_osc1PWM] = constrain(lowerData[P_osc1PWM], 0, 127);
         osc1PWMstr = lowerData[P_osc1PWM];
-        if (wholemode) {
-          upperData[P_osc1PWM] = lowerData[P_osc1PWM];
-        }
       }
-
       updateosc1PWM(1);
       break;
 
@@ -481,11 +469,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc1SawLevel] = (lowerData[P_osc1SawLevel] + speed);
         lowerData[P_osc1SawLevel] = constrain(lowerData[P_osc1SawLevel], 0, 127);
         osc1SawLevelstr = lowerData[P_osc1SawLevel];
-        if (wholemode) {
-          upperData[P_osc1SawLevel] = lowerData[P_osc1SawLevel];
-        }
       }
-
       updateOsc1SawLevel(1);
       break;
 
@@ -498,11 +482,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc1PulseLevel] = (lowerData[P_osc1PulseLevel] + speed);
         lowerData[P_osc1PulseLevel] = constrain(lowerData[P_osc1PulseLevel], 0, 127);
         osc1PulseLevelstr = lowerData[P_osc1PulseLevel];
-        if (wholemode) {
-          upperData[P_osc1PulseLevel] = lowerData[P_osc1PulseLevel];
-        }
       }
-
       updateOsc1PulseLevel(1);
       break;
 
@@ -515,11 +495,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc1SubLevel] = (lowerData[P_osc1SubLevel] + speed);
         lowerData[P_osc1SubLevel] = constrain(lowerData[P_osc1SubLevel], 0, 127);
         osc1SubLevelstr = lowerData[P_osc1SubLevel];
-        if (wholemode) {
-          upperData[P_osc1SubLevel] = lowerData[P_osc1SubLevel];
-        }
       }
-
       updateOsc1SubLevel(1);
       break;
 
@@ -532,11 +508,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_fmDepth] = (lowerData[P_fmDepth] + speed);
         lowerData[P_fmDepth] = constrain(lowerData[P_fmDepth], 0, 127);
         fmDepthstr = lowerData[P_fmDepth];
-        if (wholemode) {
-          upperData[P_fmDepth] = lowerData[P_fmDepth];
-        }
       }
-
       updatefmDepth(1);
       break;
 
@@ -549,9 +521,6 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2PW] = (lowerData[P_osc2PW] + speed);
         lowerData[P_osc2PW] = constrain(lowerData[P_osc2PW], 0, 127);
         osc2PWstr = PULSEWIDTH[lowerData[P_osc2PW]];
-        if (wholemode) {
-          upperData[P_osc2PW] = lowerData[P_osc2PW];
-        }
       }
 
       updateosc2PW(1);
@@ -566,11 +535,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2PWM] = (lowerData[P_osc2PWM] + speed);
         lowerData[P_osc2PWM] = constrain(lowerData[P_osc2PWM], 0, 127);
         osc2PWMstr = lowerData[P_osc2PWM];
-        if (wholemode) {
-          upperData[P_osc2PWM] = lowerData[P_osc2PWM];
-        }
       }
-
       updateosc2PWM(1);
       break;
 
@@ -583,9 +548,6 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2SawLevel] = (lowerData[P_osc2SawLevel] + speed);
         lowerData[P_osc2SawLevel] = constrain(lowerData[P_osc2SawLevel], 0, 127);
         osc2SawLevelstr = lowerData[P_osc2SawLevel];
-        if (wholemode) {
-          upperData[P_osc2SawLevel] = lowerData[P_osc2SawLevel];
-        }
       }
 
       updateOsc2SawLevel(1);
@@ -600,11 +562,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2PulseLevel] = (lowerData[P_osc2PulseLevel] + speed);
         lowerData[P_osc2PulseLevel] = constrain(lowerData[P_osc2PulseLevel], 0, 127);
         osc2PulseLevelstr = lowerData[P_osc2PulseLevel];
-        if (wholemode) {
-          upperData[P_osc2PulseLevel] = lowerData[P_osc2PulseLevel];
-        }
       }
-
       updateOsc2PulseLevel(1);
       break;
 
@@ -617,11 +575,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2TriangleLevel] = (lowerData[P_osc2TriangleLevel] + speed);
         lowerData[P_osc2TriangleLevel] = constrain(lowerData[P_osc2TriangleLevel], 0, 127);
         osc2TriangleLevelstr = lowerData[P_osc2TriangleLevel];
-        if (wholemode) {
-          upperData[P_osc2TriangleLevel] = lowerData[P_osc2TriangleLevel];
-        }
       }
-
       updateOsc2TriangleLevel(1);
       break;
 
@@ -634,11 +588,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterCutoff] = (lowerData[P_filterCutoff] + speed);
         lowerData[P_filterCutoff] = constrain(lowerData[P_filterCutoff], 0, 127);
         filterCutoffstr = FILTERCUTOFF[lowerData[P_filterCutoff]];
-        if (wholemode) {
-          upperData[P_filterCutoff] = lowerData[P_filterCutoff];
-        }
       }
-
       updateFilterCutoff(1);
       break;
 
@@ -651,11 +601,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterRes] = (lowerData[P_filterRes] + speed);
         lowerData[P_filterRes] = constrain(lowerData[P_filterRes], 0, 127);
         filterResstr = lowerData[P_filterRes];
-        if (wholemode) {
-          upperData[P_filterRes] = lowerData[P_filterRes];
-        }
       }
-
       updatefilterRes(1);
       break;
 
@@ -668,11 +614,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterEGlevel] = (lowerData[P_filterEGlevel] + speed);
         lowerData[P_filterEGlevel] = constrain(lowerData[P_filterEGlevel], 0, 127);
         filterEGlevelstr = lowerData[P_filterEGlevel];
-        if (wholemode) {
-          upperData[P_filterEGlevel] = lowerData[P_filterEGlevel];
-        }
       }
-
       updatefilterEGlevel(1);
       break;
 
@@ -685,11 +627,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_keytrack] = (lowerData[P_keytrack] + speed);
         lowerData[P_keytrack] = constrain(lowerData[P_keytrack], 0, 127);
         keytrackstr = lowerData[P_keytrack];
-        if (wholemode) {
-          upperData[P_keytrack] = lowerData[P_keytrack];
-        }
       }
-
       updatekeytrack(1);
       break;
 
@@ -702,11 +640,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterLFO] = (lowerData[P_filterLFO] + speed);
         lowerData[P_filterLFO] = constrain(lowerData[P_filterLFO], 0, 127);
         filterLFOstr = lowerData[P_filterLFO];
-        if (wholemode) {
-          upperData[P_filterLFO] = lowerData[P_filterLFO];
-        }
       }
-
       updatefilterLFO(1);
       break;
 
@@ -719,11 +653,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterAttack] = (lowerData[P_filterAttack] + speed);
         lowerData[P_filterAttack] = constrain(lowerData[P_filterAttack], 0, 127);
         filterAttackstr = ENVTIMES[lowerData[P_filterAttack]];
-        if (wholemode) {
-          upperData[P_filterAttack] = lowerData[P_filterAttack];
-        }
       }
-
       updatefilterAttack(1);
       break;
 
@@ -736,11 +666,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterDecay] = (lowerData[P_filterDecay] + speed);
         lowerData[P_filterDecay] = constrain(lowerData[P_filterDecay], 0, 127);
         filterDecaystr = ENVTIMES[lowerData[P_filterDecay]];
-        if (wholemode) {
-          upperData[P_filterDecay] = lowerData[P_filterDecay];
-        }
       }
-
       updatefilterDecay(1);
       break;
 
@@ -753,11 +679,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterSustain] = (lowerData[P_filterSustain] + speed);
         lowerData[P_filterSustain] = constrain(lowerData[P_filterSustain], 0, 127);
         filterSustainstr = LINEAR_FILTERMIXERSTR[lowerData[P_filterSustain]];
-        if (wholemode) {
-          upperData[P_filterSustain] = lowerData[P_filterSustain];
-        }
       }
-
       updatefilterSustain(1);
       break;
 
@@ -770,11 +692,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_filterRelease] = (lowerData[P_filterRelease] + speed);
         lowerData[P_filterRelease] = constrain(lowerData[P_filterRelease], 0, 127);
         filterReleasestr = ENVTIMES[lowerData[P_filterRelease]];
-        if (wholemode) {
-          upperData[P_filterRelease] = lowerData[P_filterRelease];
-        }
       }
-
       updatefilterRelease(1);
       break;
 
@@ -787,11 +705,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2Detune] = (lowerData[P_osc2Detune] + speed);
         lowerData[P_osc2Detune] = constrain(lowerData[P_osc2Detune], 0, 127);
         osc2Detunestr = lowerData[P_osc2Detune];
-        if (wholemode) {
-          upperData[P_osc2Detune] = lowerData[P_osc2Detune];
-        }
       }
-
       updateosc2Detune(1);
       break;
 
@@ -804,11 +718,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_osc2Interval] = (lowerData[P_osc2Interval] + speed);
         lowerData[P_osc2Interval] = constrain(lowerData[P_osc2Interval], 0, 12);
         osc2Intervalstr = lowerData[P_osc2Interval];
-        if (wholemode) {
-          upperData[P_osc2Interval] = lowerData[P_osc2Interval];
-        }
       }
-
       updateosc2Interval(1);
       break;
 
@@ -821,11 +731,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_ampAttack] = (lowerData[P_ampAttack] + speed);
         lowerData[P_ampAttack] = constrain(lowerData[P_ampAttack], 0, 127);
         ampAttackstr = ENVTIMES[lowerData[P_ampAttack]];
-        if (wholemode) {
-          upperData[P_ampAttack] = lowerData[P_ampAttack];
-        }
       }
-
       updateampAttack(1);
       break;
 
@@ -838,11 +744,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_ampDecay] = (lowerData[P_ampDecay] + speed);
         lowerData[P_ampDecay] = constrain(lowerData[P_ampDecay], 0, 127);
         ampDecaystr = ENVTIMES[lowerData[P_ampDecay]];
-        if (wholemode) {
-          upperData[P_ampDecay] = lowerData[P_ampDecay];
-        }
       }
-
       updateampDecay(1);
       break;
 
@@ -855,11 +757,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_ampSustain] = (lowerData[P_ampSustain] + speed);
         lowerData[P_ampSustain] = constrain(lowerData[P_ampSustain], 0, 127);
         ampSustainstr = LINEAR_FILTERMIXERSTR[lowerData[P_ampSustain]];
-        if (wholemode) {
-          upperData[P_ampSustain] = lowerData[P_ampSustain];
-        }
       }
-
       updateampSustain(1);
       break;
 
@@ -872,11 +770,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_ampRelease] = (lowerData[P_ampRelease] + speed);
         lowerData[P_ampRelease] = constrain(lowerData[P_ampRelease], 0, 127);
         ampReleasestr = ENVTIMES[lowerData[P_ampRelease]];
-        if (wholemode) {
-          upperData[P_ampRelease] = lowerData[P_ampRelease];
-        }
       }
-
       updateampRelease(1);
       break;
 
@@ -889,11 +783,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_LFORate] = (lowerData[P_LFORate] + speed);
         lowerData[P_LFORate] = constrain(lowerData[P_LFORate], 0, 127);
         LFORatestr = LFOTEMPO[lowerData[P_LFORate]];
-        if (wholemode) {
-          upperData[P_LFORate] = lowerData[P_LFORate];
-        }
       }
-
       updateLFORate(1);
       break;
 
@@ -906,11 +796,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_LFODelay] = (lowerData[P_LFODelay] + speed);
         lowerData[P_LFODelay] = constrain(lowerData[P_LFODelay], 0, 127);
         LFODelaystr = lowerData[P_LFODelay];
-        if (wholemode) {
-          upperData[P_LFODelay] = lowerData[P_LFODelay];
-        }
       }
-
       updateLFODelay(1);
       break;
 
@@ -923,11 +809,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_modWheelDepth] = (lowerData[P_modWheelDepth] + speed);
         lowerData[P_modWheelDepth] = constrain(lowerData[P_modWheelDepth], 0, 127);
         modWheelDepthstr = lowerData[P_modWheelDepth];
-        if (wholemode) {
-          upperData[P_modWheelDepth] = lowerData[P_modWheelDepth];
-        }
       }
-
       updatemodWheelDepth(1);
       break;
 
@@ -940,15 +822,16 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_pwLFO] = (lowerData[P_pwLFO] + speed);
         lowerData[P_pwLFO] = constrain(lowerData[P_pwLFO], 0, 127);
         pwLFOstr = LFOTEMPO[lowerData[P_pwLFO]];
-        if (wholemode) {
-          upperData[P_pwLFO] = lowerData[P_pwLFO];
-        }
       }
-
       updatepwLFO(1);
       break;
 
     case 32:
+      if (!clockwise) {
+        speed = -1;
+      } else {
+        speed = +1;
+      }
       if (upperSW) {
         upperData[P_PitchBendLevel] = (upperData[P_PitchBendLevel] + speed);
         upperData[P_PitchBendLevel] = constrain(upperData[P_PitchBendLevel], 0, 12);
@@ -957,11 +840,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_PitchBendLevel] = (lowerData[P_PitchBendLevel] + speed);
         lowerData[P_PitchBendLevel] = constrain(lowerData[P_PitchBendLevel], 0, 12);
         PitchBendLevelstr = lowerData[P_PitchBendLevel];
-        if (wholemode) {
-          upperData[P_PitchBendLevel] = lowerData[P_PitchBendLevel];
-        }
       }
-
       updatePitchBendDepth(1);
       break;
 
@@ -969,16 +848,12 @@ void RotaryEncoderChanged(bool clockwise, int id) {
       if (upperSW) {
         upperData[P_noiseLevel] = (upperData[P_noiseLevel] + speed);
         upperData[P_noiseLevel] = constrain(upperData[P_noiseLevel], 0, 127);
-        noiseLevelstr = LINEARCENTREZERO[upperData[P_noiseLevel]];
+        noiseLevelstr = upperData[P_noiseLevel];
       } else {
         lowerData[P_noiseLevel] = (lowerData[P_noiseLevel] + speed);
         lowerData[P_noiseLevel] = constrain(lowerData[P_noiseLevel], 0, 127);
-        noiseLevelstr = LINEARCENTREZERO[lowerData[P_noiseLevel]];
-        if (wholemode) {
-          upperData[P_noiseLevel] = lowerData[P_noiseLevel];
-        }
+        noiseLevelstr = lowerData[P_noiseLevel];
       }
-
       updatenoiseLevel(1);
       break;
 
@@ -991,11 +866,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_ATDepth] = (lowerData[P_ATDepth] + speed);
         lowerData[P_ATDepth] = constrain(lowerData[P_ATDepth], 0, 127);
         ATDepthstr = lowerData[P_ATDepth];
-        if (wholemode) {
-          upperData[P_ATDepth] = lowerData[P_ATDepth];
-        }
       }
-
       updateATDepth(1);
       break;
 
@@ -1008,11 +879,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_effectsMix] = (lowerData[P_effectsMix] + speed);
         lowerData[P_effectsMix] = constrain(lowerData[P_effectsMix], 0, 127);
         effectsMixstr = LINEARCENTREZERO[lowerData[P_effectsMix]];
-        if (wholemode) {
-          upperData[P_effectsMix] = lowerData[P_effectsMix];
-        }
       }
-
       updateeffectsMix(1);
       break;
 
@@ -1025,11 +892,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_volumeControl] = (lowerData[P_volumeControl] + speed);
         lowerData[P_volumeControl] = constrain(lowerData[P_volumeControl], 0, 127);
         volumeControlstr = lowerData[P_volumeControl];
-        if (wholemode) {
-          upperData[P_volumeControl] = lowerData[P_volumeControl];
-        }
       }
-
       updatevolumeControl(1);
       break;
 
@@ -1042,11 +905,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_effectPot1] = (lowerData[P_effectPot1] + speed);
         lowerData[P_effectPot1] = constrain(lowerData[P_effectPot1], 0, 127);
         effectPot1str = lowerData[P_effectPot1];
-        if (wholemode) {
-          upperData[P_effectPot1] = lowerData[P_effectPot1];
-        }
       }
-
       updateeffectPot1(1);
       break;
 
@@ -1059,11 +918,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_effectPot2] = (lowerData[P_effectPot2] + speed);
         lowerData[P_effectPot2] = constrain(lowerData[P_effectPot2], 0, 127);
         effectPot2str = lowerData[P_effectPot2];
-        if (wholemode) {
-          upperData[P_effectPot2] = lowerData[P_effectPot2];
-        }
       }
-
       updateeffectPot2(1);
       break;
 
@@ -1076,11 +931,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_effectPot3] = (lowerData[P_effectPot3] + speed);
         lowerData[P_effectPot3] = constrain(lowerData[P_effectPot3], 0, 127);
         effectPot3str = lowerData[P_effectPot3];
-        if (wholemode) {
-          upperData[P_effectPot3] = lowerData[P_effectPot3];
-        }
       }
-
       updateeffectPot3(1);
       break;
 
@@ -1093,11 +944,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_pmDCO2] = (lowerData[P_pmDCO2] + speed);
         lowerData[P_pmDCO2] = constrain(lowerData[P_pmDCO2], 0, 127);
         pmDCO2str = lowerData[P_pmDCO2];
-        if (wholemode) {
-          upperData[P_pmDCO2] = lowerData[P_pmDCO2];
-        }
       }
-
       updatePM_DCO2(1);
       break;
 
@@ -1110,11 +957,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_pmFilterEnv] = (lowerData[P_pmFilterEnv] + speed);
         lowerData[P_pmFilterEnv] = constrain(lowerData[P_pmFilterEnv], 0, 127);
         pmFilterEnvstr = lowerData[P_pmFilterEnv];
-        if (wholemode) {
-          upperData[P_pmFilterEnv] = lowerData[P_pmFilterEnv];
-        }
       }
-
       updatePM_FilterEnv(1);
       break;
 
@@ -1127,11 +970,7 @@ void RotaryEncoderChanged(bool clockwise, int id) {
         lowerData[P_amDepth] = (lowerData[P_amDepth] + speed);
         lowerData[P_amDepth] = constrain(lowerData[P_amDepth], 0, 127);
         amDepthstr = lowerData[P_amDepth];
-        if (wholemode) {
-          upperData[P_amDepth] = lowerData[P_amDepth];
-        }
       }
-
       updateamDepth(1);
       break;
   }
@@ -2831,7 +2670,7 @@ void updatenoiseSource(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Noise Source", "Pink Noise");
       }
-      midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+      midiCCOutLowerFilter(VB_PINK_WHITE, 0);
       if (wholemode) {
         midiCCOutUpperFilter(VB_PINK_WHITE, 0);
       }
@@ -7404,6 +7243,7 @@ void loop() {
     while (digitalRead(AUTOTUNE_INPUT) == HIGH) {
       while (MIDI.read()) {}
       while (MIDI2.read()) {}
+      //while (midi1.read()) {} //USB HOST MIDI Class Compliant
       while (MIDI6.read()) {}
       while (MIDI7.read()) {}
       while (MIDI8.read()) {}
@@ -7416,6 +7256,7 @@ void loop() {
 
     while (MIDI.read()) {}
     while (MIDI2.read()) {}
+    //while (midi1.read()) {} //USB HOST MIDI Class Compliant
     while (MIDI6.read()) {}
     while (MIDI7.read()) {}
     while (MIDI8.read()) {}
@@ -7429,6 +7270,7 @@ void loop() {
     checkEncoder();
     while (MIDI.read(midiChannel)) {}
     while (MIDI2.read(midiChannel)) {}
+    //while (midi1.read(midiChannel)) {} //USB HOST MIDI Class Compliant
     MIDI6.read(midiChannel);
     MIDI8.read(midiChannel);
     MIDI7.read();
