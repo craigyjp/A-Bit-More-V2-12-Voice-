@@ -14,6 +14,14 @@ Filters are based on the Matrix 12 pole switching filters with 16 filter types a
 
 The case and keybed are a CME UF-70 Classic (black) and I've only kept the main MIDI board and grounded the pots/slider inputs.
 
+# It utilizes the following projects
+
+https://github.com/craigyjp/Dual-AS3340-oscillator-core-with-Autotune
+
+https://github.com/craigyjp/Voice_board_analogue_6_channel
+
+https://github.com/craigyjp/A_Bit_More/tree/main/Displays
+
 # Things to fix 
 
 * Add sustain from pedal A (CC 64).
