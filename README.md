@@ -1,8 +1,8 @@
 
 
-## So this is a rebuild of the "A Bit More" 8 voice polyphonic analogue synth
+## So this is a rebuild of the "A Bit More" the 8 voice polyphonic analogue synth.
 
-## So a new synth is born with a modified controller, same displays and new self contained voice boards, but now the LFO's have moved to the RP2350 in software and each RP2350 autotunes a pair of AS3340 VCO's
+## A new synth is born with a modified controller, same displays but with new self contained voice boards, and the LFO's have moved to the RP2350 in software and each RP2350 autotunes a pair of AS3340 VCO's
 
 ![Synth](Photos/synth.jpg)
 
@@ -13,8 +13,6 @@ I have also added portamento, octave switching, oscillator sync etc.
 Filters are based on the Matrix 12 pole switching filters with 16 filter types available, dual LFO's are available for modulation and PWM, plus a white/pink noise source.
 
 The case and keybed are a CME UF-70 Classic (black) and I've only kept the main MIDI board and grounded the pots/slider inputs.
-
-# Although I have this repository the schematics are nearly complete and some code is still required.
 
 # Things to fix 
 
