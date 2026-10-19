@@ -2650,29 +2650,29 @@ void updatenoiseSource(boolean announce) {
       if (announce) {
         showCurrentParameterPage("Noise Source", "White Noise");
       }
-      midiCCOutUpperFilter(VB_PINK_WHITE, 127);
+      midiCCOutUpperFilter(VB_PINK_WHITE, 0);
     } else {
       if (announce) {
         showCurrentParameterPage("Noise Source", "Pink Noise");
       }
-      midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+      midiCCOutUpperFilter(VB_PINK_WHITE, 127);
     }
   } else {
     if (lowerData[P_noiseSource]) {
       if (announce) {
         showCurrentParameterPage("Noise Source", "White Noise");
       }
-      midiCCOutLowerFilter(VB_PINK_WHITE, 127);
+      midiCCOutLowerFilter(VB_PINK_WHITE, 0);
       if (wholemode) {
-        midiCCOutUpperFilter(VB_PINK_WHITE, 127);
+        midiCCOutUpperFilter(VB_PINK_WHITE, 0);
       }
     } else {
       if (announce) {
         showCurrentParameterPage("Noise Source", "Pink Noise");
       }
-      midiCCOutLowerFilter(VB_PINK_WHITE, 0);
+      midiCCOutLowerFilter(VB_PINK_WHITE, 127);
       if (wholemode) {
-        midiCCOutUpperFilter(VB_PINK_WHITE, 0);
+        midiCCOutUpperFilter(VB_PINK_WHITE, 127);
       }
     }
   }
@@ -3208,7 +3208,7 @@ void updatekeytrack(boolean announce) {
   } else {
     midiCCOutLowerVCO(CC_KEYTRACK_AMOUNT, lowerData[P_keytrack]);
     if (wholemode) {
-      midiCCOutUpperVCO(CC_KEYTRACK_AMOUNT, upperData[P_keytrack]);
+      midiCCOutUpperVCO(CC_KEYTRACK_AMOUNT, lowerData[P_keytrack]);
     }
     midiCCOut(CCkeyTrack, lowerData[P_keytrack]);
     midiCCOut71(CCkeyTrack, lowerData[P_keytrack]);
